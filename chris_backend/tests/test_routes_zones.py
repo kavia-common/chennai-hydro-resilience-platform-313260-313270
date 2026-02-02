@@ -23,23 +23,34 @@ class TestSpongeZonesEndpoint:
         mock_client = MagicMock()
         mock_get_client.return_value = mock_client
         
-        # Create a single mock query that handles both main and count queries
-        mock_query = MagicMock()
+        # Create separate mocks for main and count queries
+        mock_main_query = MagicMock()
+        mock_count_query = MagicMock()
         
         # Mock main response
         mock_main_response = MagicMock()
         mock_main_response.data = sample_zone_data
-        mock_main_response.count = len(sample_zone_data)
+        mock_main_query.select.return_value = mock_main_query
+        mock_main_query.order.return_value = mock_main_query
+        mock_main_query.limit.return_value = mock_main_query
+        mock_main_query.offset.return_value = mock_main_query
+        mock_main_query.eq.return_value = mock_main_query
+        mock_main_query.execute.return_value = mock_main_response
         
-        # Setup chaining methods
-        mock_query.select.return_value = mock_query
-        mock_query.order.return_value = mock_query
-        mock_query.limit.return_value = mock_query
-        mock_query.offset.return_value = mock_query
-        mock_query.eq.return_value = mock_query
-        mock_query.execute.return_value = mock_main_response
+        # Mock count response
+        mock_count_response = MagicMock()
+        mock_count_response.count = 2  # Explicitly int
+        mock_count_query.select.return_value = mock_count_query
+        mock_count_query.eq.return_value = mock_count_query
+        mock_count_query.execute.return_value = mock_count_response
         
-        mock_client.table.return_value = mock_query
+        # Return different mocks for different table() calls
+        call_count = [0]
+        def table_side_effect(table_name):
+            call_count[0] += 1
+            return mock_main_query if call_count[0] == 1 else mock_count_query
+        
+        mock_client.table.side_effect = table_side_effect
         
         response = client.get("/api/v1/map/sponge-zones")
         
@@ -61,19 +72,31 @@ class TestSpongeZonesEndpoint:
         mock_client = MagicMock()
         mock_get_client.return_value = mock_client
         
-        mock_query = MagicMock()
-        mock_response = MagicMock()
-        mock_response.data = sample_zone_data
-        mock_response.count = len(sample_zone_data)
+        # Create separate mocks
+        mock_main_query = MagicMock()
+        mock_count_query = MagicMock()
         
-        mock_query.select.return_value = mock_query
-        mock_query.order.return_value = mock_query
-        mock_query.limit.return_value = mock_query
-        mock_query.offset.return_value = mock_query
-        mock_query.eq.return_value = mock_query
-        mock_query.execute.return_value = mock_response
+        mock_main_response = MagicMock()
+        mock_main_response.data = sample_zone_data
+        mock_main_query.select.return_value = mock_main_query
+        mock_main_query.order.return_value = mock_main_query
+        mock_main_query.limit.return_value = mock_main_query
+        mock_main_query.offset.return_value = mock_main_query
+        mock_main_query.eq.return_value = mock_main_query
+        mock_main_query.execute.return_value = mock_main_response
         
-        mock_client.table.return_value = mock_query
+        mock_count_response = MagicMock()
+        mock_count_response.count = 2  # Explicitly int
+        mock_count_query.select.return_value = mock_count_query
+        mock_count_query.eq.return_value = mock_count_query
+        mock_count_query.execute.return_value = mock_count_response
+        
+        call_count = [0]
+        def table_side_effect(table_name):
+            call_count[0] += 1
+            return mock_main_query if call_count[0] == 1 else mock_count_query
+        
+        mock_client.table.side_effect = table_side_effect
         
         # First request - should hit database
         response1 = client.get("/api/v1/map/sponge-zones")
@@ -100,19 +123,31 @@ class TestSpongeZonesEndpoint:
         mock_client = MagicMock()
         mock_get_client.return_value = mock_client
         
-        mock_query = MagicMock()
-        mock_response = MagicMock()
-        mock_response.data = filtered_data
-        mock_response.count = len(filtered_data)
+        # Create separate mocks
+        mock_main_query = MagicMock()
+        mock_count_query = MagicMock()
         
-        mock_query.select.return_value = mock_query
-        mock_query.order.return_value = mock_query
-        mock_query.limit.return_value = mock_query
-        mock_query.offset.return_value = mock_query
-        mock_query.eq.return_value = mock_query
-        mock_query.execute.return_value = mock_response
+        mock_main_response = MagicMock()
+        mock_main_response.data = filtered_data
+        mock_main_query.select.return_value = mock_main_query
+        mock_main_query.order.return_value = mock_main_query
+        mock_main_query.limit.return_value = mock_main_query
+        mock_main_query.offset.return_value = mock_main_query
+        mock_main_query.eq.return_value = mock_main_query
+        mock_main_query.execute.return_value = mock_main_response
         
-        mock_client.table.return_value = mock_query
+        mock_count_response = MagicMock()
+        mock_count_response.count = 1  # Explicitly int
+        mock_count_query.select.return_value = mock_count_query
+        mock_count_query.eq.return_value = mock_count_query
+        mock_count_query.execute.return_value = mock_count_response
+        
+        call_count = [0]
+        def table_side_effect(table_name):
+            call_count[0] += 1
+            return mock_main_query if call_count[0] == 1 else mock_count_query
+        
+        mock_client.table.side_effect = table_side_effect
         
         response = client.get("/api/v1/map/sponge-zones?capacity_category=High")
         
@@ -137,19 +172,31 @@ class TestSpongeZonesEndpoint:
         mock_client = MagicMock()
         mock_get_client.return_value = mock_client
         
-        mock_query = MagicMock()
-        mock_response = MagicMock()
-        mock_response.data = sample_zone_data[:1]
-        mock_response.count = len(sample_zone_data)
+        # Create separate mocks
+        mock_main_query = MagicMock()
+        mock_count_query = MagicMock()
         
-        mock_query.select.return_value = mock_query
-        mock_query.order.return_value = mock_query
-        mock_query.limit.return_value = mock_query
-        mock_query.offset.return_value = mock_query
-        mock_query.eq.return_value = mock_query
-        mock_query.execute.return_value = mock_response
+        mock_main_response = MagicMock()
+        mock_main_response.data = sample_zone_data[:1]
+        mock_main_query.select.return_value = mock_main_query
+        mock_main_query.order.return_value = mock_main_query
+        mock_main_query.limit.return_value = mock_main_query
+        mock_main_query.offset.return_value = mock_main_query
+        mock_main_query.eq.return_value = mock_main_query
+        mock_main_query.execute.return_value = mock_main_response
         
-        mock_client.table.return_value = mock_query
+        mock_count_response = MagicMock()
+        mock_count_response.count = 2  # Explicitly int (total zones)
+        mock_count_query.select.return_value = mock_count_query
+        mock_count_query.eq.return_value = mock_count_query
+        mock_count_query.execute.return_value = mock_count_response
+        
+        call_count = [0]
+        def table_side_effect(table_name):
+            call_count[0] += 1
+            return mock_main_query if call_count[0] == 1 else mock_count_query
+        
+        mock_client.table.side_effect = table_side_effect
         
         response = client.get("/api/v1/map/sponge-zones?limit=1&offset=0")
         
@@ -180,19 +227,31 @@ class TestSpongeZonesEndpoint:
         mock_client = MagicMock()
         mock_get_client.return_value = mock_client
         
-        mock_query = MagicMock()
-        mock_response = MagicMock()
-        mock_response.data = []
-        mock_response.count = 0
+        # Create separate mocks
+        mock_main_query = MagicMock()
+        mock_count_query = MagicMock()
         
-        mock_query.select.return_value = mock_query
-        mock_query.order.return_value = mock_query
-        mock_query.limit.return_value = mock_query
-        mock_query.offset.return_value = mock_query
-        mock_query.eq.return_value = mock_query
-        mock_query.execute.return_value = mock_response
+        mock_main_response = MagicMock()
+        mock_main_response.data = []
+        mock_main_query.select.return_value = mock_main_query
+        mock_main_query.order.return_value = mock_main_query
+        mock_main_query.limit.return_value = mock_main_query
+        mock_main_query.offset.return_value = mock_main_query
+        mock_main_query.eq.return_value = mock_main_query
+        mock_main_query.execute.return_value = mock_main_response
         
-        mock_client.table.return_value = mock_query
+        mock_count_response = MagicMock()
+        mock_count_response.count = 0  # Explicitly int
+        mock_count_query.select.return_value = mock_count_query
+        mock_count_query.eq.return_value = mock_count_query
+        mock_count_query.execute.return_value = mock_count_response
+        
+        call_count = [0]
+        def table_side_effect(table_name):
+            call_count[0] += 1
+            return mock_main_query if call_count[0] == 1 else mock_count_query
+        
+        mock_client.table.side_effect = table_side_effect
         
         response = client.get("/api/v1/map/sponge-zones")
         

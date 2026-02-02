@@ -69,6 +69,15 @@ def paginate_results(
     if total_count is None:
         total_count = len(data)
     
+    # Defensive check: coerce total_count to int if it's not
+    # This handles cases where mock objects or other types are passed
+    if not isinstance(total_count, int):
+        try:
+            total_count = int(total_count)
+        except (TypeError, ValueError):
+            logger.warning(f"Invalid total_count type: {type(total_count)}, defaulting to data length")
+            total_count = len(data)
+    
     # Apply pagination to data
     paginated_data = data[offset:offset + limit]
     

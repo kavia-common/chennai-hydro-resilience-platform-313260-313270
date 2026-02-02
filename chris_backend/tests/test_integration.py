@@ -67,18 +67,24 @@ class TestZonesIntegration:
         mock_client = MagicMock()
         mock_get_client.return_value = mock_client
         
-        # Mock main query
+        # Mock main query with all chainable methods
         mock_main_query = MagicMock()
         mock_main_response = MagicMock()
         mock_main_response.data = sample_zone_data
+        mock_main_query.select.return_value = mock_main_query
+        mock_main_query.order.return_value = mock_main_query
+        mock_main_query.limit.return_value = mock_main_query
+        mock_main_query.offset.return_value = mock_main_query
+        mock_main_query.eq.return_value = mock_main_query
         mock_main_query.execute.return_value = mock_main_response
         
         # Mock count query
         mock_count_query = MagicMock()
         mock_count_response = MagicMock()
-        mock_count_response.count = len(sample_zone_data)
-        mock_count_query.execute.return_value = mock_count_response
+        mock_count_response.count = 2  # Explicitly int
+        mock_count_query.select.return_value = mock_count_query
         mock_count_query.eq.return_value = mock_count_query
+        mock_count_query.execute.return_value = mock_count_response
         
         call_count = [0]
         def table_side_effect(table_name):
@@ -170,23 +176,35 @@ class TestCachingIntegration:
         
         execute_count = [0]
         
-        def mock_execute():
+        def mock_execute_main():
             execute_count[0] += 1
             mock_resp = MagicMock()
             mock_resp.data = sample_zone_data
-            mock_resp.count = len(sample_zone_data)
+            return mock_resp
+        
+        def mock_execute_count():
+            execute_count[0] += 1
+            mock_resp = MagicMock()
+            mock_resp.count = 2  # Explicitly int
             return mock_resp
         
         mock_client = MagicMock()
         mock_get_client.return_value = mock_client
         
-        # Mock queries
+        # Mock main query with all chainable methods
         mock_main_query = MagicMock()
-        mock_main_query.execute.side_effect = mock_execute
+        mock_main_query.select.return_value = mock_main_query
+        mock_main_query.order.return_value = mock_main_query
+        mock_main_query.limit.return_value = mock_main_query
+        mock_main_query.offset.return_value = mock_main_query
+        mock_main_query.eq.return_value = mock_main_query
+        mock_main_query.execute.side_effect = mock_execute_main
         
+        # Mock count query
         mock_count_query = MagicMock()
-        mock_count_query.execute.side_effect = mock_execute
+        mock_count_query.select.return_value = mock_count_query
         mock_count_query.eq.return_value = mock_count_query
+        mock_count_query.execute.side_effect = mock_execute_count
         
         table_call_count = [0]
         def table_side_effect(table_name):

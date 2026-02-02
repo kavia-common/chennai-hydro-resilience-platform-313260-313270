@@ -21,21 +21,38 @@ class TestCitywideRiskEndpoint:
         mock_client = MagicMock()
         mock_get_client.return_value = mock_client
         
-        mock_query = MagicMock()
-        mock_response = MagicMock()
-        mock_response.data = sample_citywide_risk_data
-        mock_response.count = len(sample_citywide_risk_data)
+        # Create separate mocks for main query and count query
+        mock_main_query = MagicMock()
+        mock_count_query = MagicMock()
         
-        mock_query.select.return_value = mock_query
-        mock_query.order.return_value = mock_query
-        mock_query.limit.return_value = mock_query
-        mock_query.offset.return_value = mock_query
-        mock_query.gte.return_value = mock_query
-        mock_query.lte.return_value = mock_query
-        mock_query.eq.return_value = mock_query
-        mock_query.execute.return_value = mock_response
+        # Setup main query response
+        mock_main_response = MagicMock()
+        mock_main_response.data = sample_citywide_risk_data
+        mock_main_query.select.return_value = mock_main_query
+        mock_main_query.order.return_value = mock_main_query
+        mock_main_query.limit.return_value = mock_main_query
+        mock_main_query.offset.return_value = mock_main_query
+        mock_main_query.gte.return_value = mock_main_query
+        mock_main_query.lte.return_value = mock_main_query
+        mock_main_query.eq.return_value = mock_main_query
+        mock_main_query.execute.return_value = mock_main_response
         
-        mock_client.table.return_value = mock_query
+        # Setup count query response
+        mock_count_response = MagicMock()
+        mock_count_response.count = 3  # Explicitly set as int
+        mock_count_query.select.return_value = mock_count_query
+        mock_count_query.gte.return_value = mock_count_query
+        mock_count_query.lte.return_value = mock_count_query
+        mock_count_query.eq.return_value = mock_count_query
+        mock_count_query.execute.return_value = mock_count_response
+        
+        # Return different mocks for different table() calls
+        call_count = [0]
+        def table_side_effect(table_name):
+            call_count[0] += 1
+            return mock_main_query if call_count[0] == 1 else mock_count_query
+        
+        mock_client.table.side_effect = table_side_effect
         
         response = client.get("/api/v1/citywide-risk")
         
@@ -58,20 +75,36 @@ class TestCitywideRiskEndpoint:
         filtered_data = [r for r in sample_citywide_risk_data if r["year"] >= 2026]
         
         mock_client = MagicMock()
-        mock_table = MagicMock()
-        mock_response = MagicMock()
-        mock_response.data = filtered_data
-        mock_response.count = len(filtered_data)
         
-        mock_table.execute.return_value = mock_response
-        mock_table.select.return_value = mock_table
-        mock_table.order.return_value = mock_table
-        mock_table.limit.return_value = mock_table
-        mock_table.offset.return_value = mock_table
-        mock_table.gte.return_value = mock_table
-        mock_table.lte.return_value = mock_table
-        mock_table.eq.return_value = mock_table
-        mock_client.table.return_value = mock_table
+        # Create separate mocks for main and count queries
+        mock_main_query = MagicMock()
+        mock_count_query = MagicMock()
+        
+        mock_main_response = MagicMock()
+        mock_main_response.data = filtered_data
+        mock_main_query.select.return_value = mock_main_query
+        mock_main_query.order.return_value = mock_main_query
+        mock_main_query.limit.return_value = mock_main_query
+        mock_main_query.offset.return_value = mock_main_query
+        mock_main_query.gte.return_value = mock_main_query
+        mock_main_query.lte.return_value = mock_main_query
+        mock_main_query.eq.return_value = mock_main_query
+        mock_main_query.execute.return_value = mock_main_response
+        
+        mock_count_response = MagicMock()
+        mock_count_response.count = 2  # Explicitly int
+        mock_count_query.select.return_value = mock_count_query
+        mock_count_query.gte.return_value = mock_count_query
+        mock_count_query.lte.return_value = mock_count_query
+        mock_count_query.eq.return_value = mock_count_query
+        mock_count_query.execute.return_value = mock_count_response
+        
+        call_count = [0]
+        def table_side_effect(table_name):
+            call_count[0] += 1
+            return mock_main_query if call_count[0] == 1 else mock_count_query
+        
+        mock_client.table.side_effect = table_side_effect
         mock_get_client.return_value = mock_client
         
         response = client.get("/api/v1/citywide-risk?start_year=2026&end_year=2027")
@@ -102,20 +135,36 @@ class TestCitywideRiskEndpoint:
         filtered_data = [r for r in sample_citywide_risk_data if r["risk_category"] == "Critical"]
         
         mock_client = MagicMock()
-        mock_table = MagicMock()
-        mock_response = MagicMock()
-        mock_response.data = filtered_data
-        mock_response.count = len(filtered_data)
         
-        mock_table.execute.return_value = mock_response
-        mock_table.select.return_value = mock_table
-        mock_table.order.return_value = mock_table
-        mock_table.limit.return_value = mock_table
-        mock_table.offset.return_value = mock_table
-        mock_table.gte.return_value = mock_table
-        mock_table.lte.return_value = mock_table
-        mock_table.eq.return_value = mock_table
-        mock_client.table.return_value = mock_table
+        # Create separate mocks
+        mock_main_query = MagicMock()
+        mock_count_query = MagicMock()
+        
+        mock_main_response = MagicMock()
+        mock_main_response.data = filtered_data
+        mock_main_query.select.return_value = mock_main_query
+        mock_main_query.order.return_value = mock_main_query
+        mock_main_query.limit.return_value = mock_main_query
+        mock_main_query.offset.return_value = mock_main_query
+        mock_main_query.gte.return_value = mock_main_query
+        mock_main_query.lte.return_value = mock_main_query
+        mock_main_query.eq.return_value = mock_main_query
+        mock_main_query.execute.return_value = mock_main_response
+        
+        mock_count_response = MagicMock()
+        mock_count_response.count = 1  # Explicitly int
+        mock_count_query.select.return_value = mock_count_query
+        mock_count_query.gte.return_value = mock_count_query
+        mock_count_query.lte.return_value = mock_count_query
+        mock_count_query.eq.return_value = mock_count_query
+        mock_count_query.execute.return_value = mock_count_response
+        
+        call_count = [0]
+        def table_side_effect(table_name):
+            call_count[0] += 1
+            return mock_main_query if call_count[0] == 1 else mock_count_query
+        
+        mock_client.table.side_effect = table_side_effect
         mock_get_client.return_value = mock_client
         
         response = client.get("/api/v1/citywide-risk?risk_category=Critical")
@@ -139,20 +188,36 @@ class TestCitywideRiskEndpoint:
         mock_get_cache.return_value = mock_cache
         
         mock_client = MagicMock()
-        mock_table = MagicMock()
-        mock_response = MagicMock()
-        mock_response.data = sample_citywide_risk_data[:2]
-        mock_response.count = len(sample_citywide_risk_data)
         
-        mock_table.execute.return_value = mock_response
-        mock_table.select.return_value = mock_table
-        mock_table.order.return_value = mock_table
-        mock_table.limit.return_value = mock_table
-        mock_table.offset.return_value = mock_table
-        mock_table.gte.return_value = mock_table
-        mock_table.lte.return_value = mock_table
-        mock_table.eq.return_value = mock_table
-        mock_client.table.return_value = mock_table
+        # Create separate mocks
+        mock_main_query = MagicMock()
+        mock_count_query = MagicMock()
+        
+        mock_main_response = MagicMock()
+        mock_main_response.data = sample_citywide_risk_data[:2]
+        mock_main_query.select.return_value = mock_main_query
+        mock_main_query.order.return_value = mock_main_query
+        mock_main_query.limit.return_value = mock_main_query
+        mock_main_query.offset.return_value = mock_main_query
+        mock_main_query.gte.return_value = mock_main_query
+        mock_main_query.lte.return_value = mock_main_query
+        mock_main_query.eq.return_value = mock_main_query
+        mock_main_query.execute.return_value = mock_main_response
+        
+        mock_count_response = MagicMock()
+        mock_count_response.count = 3  # Total count explicitly int
+        mock_count_query.select.return_value = mock_count_query
+        mock_count_query.gte.return_value = mock_count_query
+        mock_count_query.lte.return_value = mock_count_query
+        mock_count_query.eq.return_value = mock_count_query
+        mock_count_query.execute.return_value = mock_count_response
+        
+        call_count = [0]
+        def table_side_effect(table_name):
+            call_count[0] += 1
+            return mock_main_query if call_count[0] == 1 else mock_count_query
+        
+        mock_client.table.side_effect = table_side_effect
         mock_get_client.return_value = mock_client
         
         response = client.get("/api/v1/citywide-risk?limit=2&offset=0")
@@ -171,20 +236,36 @@ class TestCitywideRiskEndpoint:
         mock_get_cache.return_value = mock_cache
         
         mock_client = MagicMock()
-        mock_table = MagicMock()
-        mock_response = MagicMock()
-        mock_response.data = sample_citywide_risk_data
-        mock_response.count = len(sample_citywide_risk_data)
         
-        mock_table.execute.return_value = mock_response
-        mock_table.select.return_value = mock_table
-        mock_table.order.return_value = mock_table
-        mock_table.limit.return_value = mock_table
-        mock_table.offset.return_value = mock_table
-        mock_table.gte.return_value = mock_table
-        mock_table.lte.return_value = mock_table
-        mock_table.eq.return_value = mock_table
-        mock_client.table.return_value = mock_table
+        # Create separate mocks
+        mock_main_query = MagicMock()
+        mock_count_query = MagicMock()
+        
+        mock_main_response = MagicMock()
+        mock_main_response.data = sample_citywide_risk_data
+        mock_main_query.select.return_value = mock_main_query
+        mock_main_query.order.return_value = mock_main_query
+        mock_main_query.limit.return_value = mock_main_query
+        mock_main_query.offset.return_value = mock_main_query
+        mock_main_query.gte.return_value = mock_main_query
+        mock_main_query.lte.return_value = mock_main_query
+        mock_main_query.eq.return_value = mock_main_query
+        mock_main_query.execute.return_value = mock_main_response
+        
+        mock_count_response = MagicMock()
+        mock_count_response.count = 3  # Explicitly int
+        mock_count_query.select.return_value = mock_count_query
+        mock_count_query.gte.return_value = mock_count_query
+        mock_count_query.lte.return_value = mock_count_query
+        mock_count_query.eq.return_value = mock_count_query
+        mock_count_query.execute.return_value = mock_count_response
+        
+        call_count = [0]
+        def table_side_effect(table_name):
+            call_count[0] += 1
+            return mock_main_query if call_count[0] == 1 else mock_count_query
+        
+        mock_client.table.side_effect = table_side_effect
         mock_get_client.return_value = mock_client
         
         # First request
@@ -206,20 +287,36 @@ class TestCitywideRiskEndpoint:
         mock_get_cache.return_value = mock_cache
         
         mock_client = MagicMock()
-        mock_table = MagicMock()
-        mock_response = MagicMock()
-        mock_response.data = sample_citywide_risk_data
-        mock_response.count = len(sample_citywide_risk_data)
         
-        mock_table.execute.return_value = mock_response
-        mock_table.select.return_value = mock_table
-        mock_table.order.return_value = mock_table
-        mock_table.limit.return_value = mock_table
-        mock_table.offset.return_value = mock_table
-        mock_table.gte.return_value = mock_table
-        mock_table.lte.return_value = mock_table
-        mock_table.eq.return_value = mock_table
-        mock_client.table.return_value = mock_table
+        # Create separate mocks
+        mock_main_query = MagicMock()
+        mock_count_query = MagicMock()
+        
+        mock_main_response = MagicMock()
+        mock_main_response.data = sample_citywide_risk_data
+        mock_main_query.select.return_value = mock_main_query
+        mock_main_query.order.return_value = mock_main_query
+        mock_main_query.limit.return_value = mock_main_query
+        mock_main_query.offset.return_value = mock_main_query
+        mock_main_query.gte.return_value = mock_main_query
+        mock_main_query.lte.return_value = mock_main_query
+        mock_main_query.eq.return_value = mock_main_query
+        mock_main_query.execute.return_value = mock_main_response
+        
+        mock_count_response = MagicMock()
+        mock_count_response.count = 3  # Explicitly int
+        mock_count_query.select.return_value = mock_count_query
+        mock_count_query.gte.return_value = mock_count_query
+        mock_count_query.lte.return_value = mock_count_query
+        mock_count_query.eq.return_value = mock_count_query
+        mock_count_query.execute.return_value = mock_count_response
+        
+        call_count = [0]
+        def table_side_effect(table_name):
+            call_count[0] += 1
+            return mock_main_query if call_count[0] == 1 else mock_count_query
+        
+        mock_client.table.side_effect = table_side_effect
         mock_get_client.return_value = mock_client
         
         response = client.get("/api/v1/citywide-risk")
@@ -243,20 +340,36 @@ class TestCitywideRiskEndpoint:
         mock_get_cache.return_value = mock_cache
         
         mock_client = MagicMock()
-        mock_table = MagicMock()
-        mock_response = MagicMock()
-        mock_response.data = []
-        mock_response.count = 0
         
-        mock_table.execute.return_value = mock_response
-        mock_table.select.return_value = mock_table
-        mock_table.order.return_value = mock_table
-        mock_table.limit.return_value = mock_table
-        mock_table.offset.return_value = mock_table
-        mock_table.gte.return_value = mock_table
-        mock_table.lte.return_value = mock_table
-        mock_table.eq.return_value = mock_table
-        mock_client.table.return_value = mock_table
+        # Create separate mocks
+        mock_main_query = MagicMock()
+        mock_count_query = MagicMock()
+        
+        mock_main_response = MagicMock()
+        mock_main_response.data = []
+        mock_main_query.select.return_value = mock_main_query
+        mock_main_query.order.return_value = mock_main_query
+        mock_main_query.limit.return_value = mock_main_query
+        mock_main_query.offset.return_value = mock_main_query
+        mock_main_query.gte.return_value = mock_main_query
+        mock_main_query.lte.return_value = mock_main_query
+        mock_main_query.eq.return_value = mock_main_query
+        mock_main_query.execute.return_value = mock_main_response
+        
+        mock_count_response = MagicMock()
+        mock_count_response.count = 0  # Explicitly int
+        mock_count_query.select.return_value = mock_count_query
+        mock_count_query.gte.return_value = mock_count_query
+        mock_count_query.lte.return_value = mock_count_query
+        mock_count_query.eq.return_value = mock_count_query
+        mock_count_query.execute.return_value = mock_count_response
+        
+        call_count = [0]
+        def table_side_effect(table_name):
+            call_count[0] += 1
+            return mock_main_query if call_count[0] == 1 else mock_count_query
+        
+        mock_client.table.side_effect = table_side_effect
         mock_get_client.return_value = mock_client
         
         response = client.get("/api/v1/citywide-risk")

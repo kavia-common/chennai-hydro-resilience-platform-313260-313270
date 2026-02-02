@@ -52,7 +52,7 @@ def mock_supabase_client():
     # Mock execute to return mock response
     mock_response = MagicMock()
     mock_response.data = []
-    mock_response.count = 0
+    mock_response.count = 0  # Ensure count is int, not MagicMock
     mock_table.execute.return_value = mock_response
     
     return mock_client

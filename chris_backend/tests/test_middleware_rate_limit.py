@@ -4,7 +4,6 @@ Tests for rate limiting middleware.
 Tests token bucket algorithm, rate limit enforcement, and headers.
 """
 import pytest
-import os
 import time
 from fastapi import status
 from unittest.mock import MagicMock
@@ -153,16 +152,23 @@ class TestRateLimitMiddleware:
     @pytest.mark.asyncio
     async def test_rate_limit_middleware_blocks_excess_requests(self, client):
         """Test that middleware blocks requests over limit."""
-        # Make requests up to the limit
-        max_requests = int(os.environ.get("RATE_LIMIT_MAX", "100"))
+        from src.middleware.rate_limit import _rate_limiter
         
-        # Make max + 1 requests
-        responses = []
-        for _ in range(max_requests + 1):
-            response = client.get("/")
-            responses.append(response)
+        # Store original max and set a lower limit for testing
+        original_max = _rate_limiter.max_requests
+        _rate_limiter.max_requests = 5
         
-        # Last response should be rate limited
-        last_response = responses[-1]
-        assert last_response.status_code == status.HTTP_429_TOO_MANY_REQUESTS
-        assert "Rate limit exceeded" in last_response.json()["detail"]["error"]
+        try:
+            # Make requests up to the limit
+            responses = []
+            for i in range(6):  # One more than limit
+                response = client.get("/")
+                responses.append(response)
+            
+            # Last response should be rate limited
+            last_response = responses[-1]
+            assert last_response.status_code == status.HTTP_429_TOO_MANY_REQUESTS
+            assert "Rate limit exceeded" in last_response.json()["detail"]["error"]
+        finally:
+            # Restore original limit
+            _rate_limiter.max_requests = original_max

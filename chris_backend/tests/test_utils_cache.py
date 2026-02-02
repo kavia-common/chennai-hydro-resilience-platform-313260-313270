@@ -138,7 +138,8 @@ class TestCacheUtilityFunctions:
         # Key should start with prefix
         assert key1.startswith("prefix:")
     
-    def test_cached_decorator(self):
+    @pytest.mark.asyncio
+    async def test_cached_decorator(self):
         """Test caching decorator for functions."""
         from src.utils.cache import cached, get_cache
         
@@ -153,12 +154,12 @@ class TestCacheUtilityFunctions:
         get_cache().clear()
         
         # First call should execute function
-        result1 = pytest.helpers.run_async(expensive_function("value1"))
+        result1 = await expensive_function("value1")
         assert result1 == "result_value1"
         assert call_count[0] == 1
         
         # Second call should use cache
-        result2 = pytest.helpers.run_async(expensive_function("value1"))
+        result2 = await expensive_function("value1")
         assert result2 == "result_value1"
         assert call_count[0] == 1  # Function not called again
     
