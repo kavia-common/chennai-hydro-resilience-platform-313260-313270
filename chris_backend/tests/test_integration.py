@@ -62,7 +62,6 @@ class TestZonesIntegration:
     ):
         """Test complete sponge zones retrieval workflow."""
         mock_get_cache.return_value = mock_cache
-        mock_cache.get.return_value = None
         
         # Mock database
         mock_client = MagicMock()
@@ -107,21 +106,28 @@ class TestSecurityIntegration:
     
     def test_rate_limiting_enforcement(self, client):
         """Test that rate limiting is enforced across requests."""
-        import os
+        from src.middleware.rate_limit import _rate_limiter
         
-        max_requests = int(os.environ.get("RATE_LIMIT_MAX", "100"))
+        # Temporarily set a lower limit for this test
+        original_max = _rate_limiter.max_requests
+        _rate_limiter.max_requests = 5
         
-        # Make requests up to limit
-        successful_requests = 0
-        for i in range(max_requests + 5):
-            response = client.get("/")
-            if response.status_code == status.HTTP_200_OK:
-                successful_requests += 1
-            elif response.status_code == status.HTTP_429_TOO_MANY_REQUESTS:
-                break
-        
-        # Should have hit rate limit
-        assert successful_requests <= max_requests
+        try:
+            # Make requests up to limit
+            successful_requests = 0
+            for i in range(7):  # Try more than limit
+                response = client.get("/")
+                if response.status_code == status.HTTP_200_OK:
+                    successful_requests += 1
+                elif response.status_code == status.HTTP_429_TOO_MANY_REQUESTS:
+                    break
+            
+            # Should have hit rate limit at 5
+            assert successful_requests <= 5
+            assert successful_requests > 0
+        finally:
+            # Restore original limit
+            _rate_limiter.max_requests = original_max
     
     def test_authentication_flow(self, client, mock_jwt_token):
         """Test authentication across multiple requests."""

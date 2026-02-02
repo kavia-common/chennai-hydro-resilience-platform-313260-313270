@@ -17,7 +17,6 @@ class TestCitywideRiskEndpoint:
     ):
         """Test that citywide risk endpoint returns data with statistics."""
         mock_get_cache.return_value = mock_cache
-        mock_cache.get.return_value = None
         
         mock_client = MagicMock()
         mock_get_client.return_value = mock_client
@@ -48,11 +47,14 @@ class TestCitywideRiskEndpoint:
         assert data["summary"]["highest_risk_year"] == 2027
         assert data["summary"]["highest_risk_score"] == 88.7
     
+    @patch("src.api.routes.citywide.get_cache")
     @patch("src.api.routes.citywide.get_supabase_client")
     def test_get_citywide_risk_filters_by_year_range(
-        self, mock_get_client, client, sample_citywide_risk_data
+        self, mock_get_client, mock_get_cache, client, sample_citywide_risk_data, mock_cache
     ):
         """Test filtering citywide risk by year range."""
+        mock_get_cache.return_value = mock_cache
+        
         filtered_data = [r for r in sample_citywide_risk_data if r["year"] >= 2026]
         
         mock_client = MagicMock()
@@ -89,11 +91,14 @@ class TestCitywideRiskEndpoint:
         response = client.get("/api/v1/citywide-risk?start_year=1999")
         assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
     
+    @patch("src.api.routes.citywide.get_cache")
     @patch("src.api.routes.citywide.get_supabase_client")
     def test_get_citywide_risk_filters_by_category(
-        self, mock_get_client, client, sample_citywide_risk_data
+        self, mock_get_client, mock_get_cache, client, sample_citywide_risk_data, mock_cache
     ):
         """Test filtering citywide risk by risk category."""
+        mock_get_cache.return_value = mock_cache
+        
         filtered_data = [r for r in sample_citywide_risk_data if r["risk_category"] == "Critical"]
         
         mock_client = MagicMock()
@@ -125,11 +130,14 @@ class TestCitywideRiskEndpoint:
         response = client.get("/api/v1/citywide-risk?risk_category=Invalid")
         assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
     
+    @patch("src.api.routes.citywide.get_cache")
     @patch("src.api.routes.citywide.get_supabase_client")
     def test_get_citywide_risk_pagination(
-        self, mock_get_client, client, sample_citywide_risk_data
+        self, mock_get_client, mock_get_cache, client, sample_citywide_risk_data, mock_cache
     ):
         """Test pagination for citywide risk data."""
+        mock_get_cache.return_value = mock_cache
+        
         mock_client = MagicMock()
         mock_table = MagicMock()
         mock_response = MagicMock()
@@ -189,11 +197,14 @@ class TestCitywideRiskEndpoint:
         
         assert response1.json() == response2.json()
     
+    @patch("src.api.routes.citywide.get_cache")
     @patch("src.api.routes.citywide.get_supabase_client")
     def test_get_citywide_risk_calculates_summary_statistics(
-        self, mock_get_client, client, sample_citywide_risk_data
+        self, mock_get_client, mock_get_cache, client, sample_citywide_risk_data, mock_cache
     ):
         """Test that summary statistics are correctly calculated."""
+        mock_get_cache.return_value = mock_cache
+        
         mock_client = MagicMock()
         mock_table = MagicMock()
         mock_response = MagicMock()
@@ -223,11 +234,14 @@ class TestCitywideRiskEndpoint:
         assert summary["high_risk_years"] == [2026]
         assert "average_risk_score" in summary
     
+    @patch("src.api.routes.citywide.get_cache")
     @patch("src.api.routes.citywide.get_supabase_client")
     def test_get_citywide_risk_handles_empty_result(
-        self, mock_get_client, client
+        self, mock_get_client, mock_get_cache, client, mock_cache
     ):
         """Test endpoint when no data is found."""
+        mock_get_cache.return_value = mock_cache
+        
         mock_client = MagicMock()
         mock_table = MagicMock()
         mock_response = MagicMock()

@@ -208,32 +208,46 @@ def mock_cache():
     """Mock cache for testing."""
     cache_data = {}
     
-    class MockCache:
-        def get(self, key):
-            return cache_data.get(key)
-        
-        def set(self, key, value, ttl_seconds=300):
-            cache_data[key] = value
-        
-        def invalidate(self, key):
-            cache_data.pop(key, None)
-        
-        def invalidate_pattern(self, pattern):
-            keys_to_delete = [k for k in cache_data.keys() if pattern in k]
-            for k in keys_to_delete:
-                cache_data.pop(k)
-        
-        def clear(self):
-            cache_data.clear()
-        
-        def stats(self):
-            return {
-                "total_entries": len(cache_data),
-                "active_entries": len(cache_data),
-                "expired_entries": 0
-            }
+    mock = MagicMock()
     
-    return MockCache()
+    # Configure get method
+    def mock_get(key):
+        return cache_data.get(key)
+    
+    # Configure set method
+    def mock_set(key, value, ttl_seconds=300):
+        cache_data[key] = value
+    
+    # Configure invalidate method
+    def mock_invalidate(key):
+        cache_data.pop(key, None)
+    
+    # Configure invalidate_pattern method
+    def mock_invalidate_pattern(pattern):
+        keys_to_delete = [k for k in cache_data.keys() if pattern in k]
+        for k in keys_to_delete:
+            cache_data.pop(k)
+    
+    # Configure clear method
+    def mock_clear():
+        cache_data.clear()
+    
+    # Configure stats method
+    def mock_stats():
+        return {
+            "total_entries": len(cache_data),
+            "active_entries": len(cache_data),
+            "expired_entries": 0
+        }
+    
+    mock.get.side_effect = mock_get
+    mock.set.side_effect = mock_set
+    mock.invalidate.side_effect = mock_invalidate
+    mock.invalidate_pattern.side_effect = mock_invalidate_pattern
+    mock.clear.side_effect = mock_clear
+    mock.stats.side_effect = mock_stats
+    
+    return mock
 
 
 @pytest.fixture(autouse=True)

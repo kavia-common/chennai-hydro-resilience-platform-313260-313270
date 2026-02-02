@@ -18,7 +18,6 @@ class TestSpongeZonesEndpoint:
         """Test that sponge zones endpoint returns GeoJSON FeatureCollection."""
         # Mock cache to return None (cache miss)
         mock_get_cache.return_value = mock_cache
-        mock_cache.get.return_value = None
         
         # Mock Supabase client
         mock_client = MagicMock()
@@ -94,7 +93,6 @@ class TestSpongeZonesEndpoint:
     ):
         """Test filtering sponge zones by capacity category."""
         mock_get_cache.return_value = mock_cache
-        mock_cache.get.return_value = None
         
         # Mock Supabase response with only High capacity zones
         filtered_data = [z for z in sample_zone_data if z["capacity_category"] == "High"]
@@ -135,7 +133,6 @@ class TestSpongeZonesEndpoint:
     ):
         """Test pagination parameters for sponge zones."""
         mock_get_cache.return_value = mock_cache
-        mock_cache.get.return_value = None
         
         mock_client = MagicMock()
         mock_get_client.return_value = mock_client
@@ -179,7 +176,6 @@ class TestSpongeZonesEndpoint:
     ):
         """Test endpoint when no zones are found."""
         mock_get_cache.return_value = mock_cache
-        mock_cache.get.return_value = None
         
         mock_client = MagicMock()
         mock_get_client.return_value = mock_client
@@ -217,7 +213,6 @@ class TestZoneDetailsEndpoint:
     ):
         """Test retrieving details for a specific zone."""
         mock_get_cache.return_value = mock_cache
-        mock_cache.get.return_value = None
         
         mock_client = MagicMock()
         mock_get_client.return_value = mock_client
@@ -245,7 +240,6 @@ class TestZoneDetailsEndpoint:
     ):
         """Test zone details when zone doesn't exist."""
         mock_get_cache.return_value = mock_cache
-        mock_cache.get.return_value = None
         
         mock_client = MagicMock()
         mock_get_client.return_value = mock_client

@@ -263,6 +263,25 @@ async def get_citywide_risk(
         critical_years = [r.year for r in records if r.risk_category == "Critical"]
         high_years = [r.year for r in records if r.risk_category == "High"]
         
+        # Guard against empty records when calculating max
+        if not records:
+            struct_log.info(
+                "No citywide risk data found after conversion",
+                client_ip=client_ip
+            )
+            empty_response = CitywideRiskResponse(
+                success=True,
+                data=[],
+                summary={
+                    "total_years": 0,
+                    "message": "No risk data found. Ensure citywide_risk table is populated."
+                },
+                message="No data available for the specified filters."
+            )
+            # Cache empty result with shorter TTL
+            cache.set(cache_key, empty_response, ttl_seconds=60)
+            return empty_response
+        
         highest_risk_record = max(records, key=lambda r: r.risk_score)
         
         # Build pagination metadata
