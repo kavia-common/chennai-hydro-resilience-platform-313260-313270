@@ -4,13 +4,14 @@ Citywide Risk API routes for aggregate flood risk data.
 PUBLIC_INTERFACE: GET /api/v1/citywide-risk
 Returns all citywide risk predictions with aggregate statistics.
 """
-from fastapi import APIRouter, HTTPException, Query, status
+from fastapi import APIRouter, HTTPException, Query, status, Request
 from typing import Optional, List
 import logging
 
 from src.schemas.citywide import CitywideRiskResponse
 from src.schemas.forecast import CitywideRiskRecord
 from src.utils.supabase_client import get_supabase_client
+from src.middleware.rate_limit import get_client_ip
 
 logger = logging.getLogger(__name__)
 
@@ -26,20 +27,24 @@ router = APIRouter(prefix="/api/v1", tags=["Citywide Risk"])
     description="""
     Retrieve all citywide flood risk predictions with aggregate statistics.
     
+    **Public Endpoint** - No authentication required for read access.
+    
     **Use Case:**
     - Display historical and forecasted risk trends in charts
     - Highlight critical risk years
     - Show aggregate statistics (highest risk year, average score)
     
     **Query Parameters:**
-    - `start_year`: Filter predictions starting from this year (optional)
-    - `end_year`: Filter predictions up to this year (optional)
+    - `start_year`: Filter predictions starting from this year (optional, range: 2000-2100)
+    - `end_year`: Filter predictions up to this year (optional, range: 2000-2100)
     - `risk_category`: Filter by risk level (Low, Moderate, High, Critical) (optional)
     
     **Response includes:**
     - All risk predictions ordered by year
     - Summary statistics (highest risk year, average risk score)
     - Risk trend indicators
+    
+    **Rate Limiting:** Subject to global rate limits (100 req/60s per IP)
     """,
     responses={
         200: {
@@ -66,39 +71,66 @@ router = APIRouter(prefix="/api/v1", tags=["Citywide Risk"])
                 }
             }
         },
+        422: {"description": "Validation error - Invalid query parameters"},
+        429: {"description": "Too many requests - Rate limit exceeded"},
         500: {"description": "Database error"}
     }
 )
 async def get_citywide_risk(
+    request: Request,
     start_year: Optional[int] = Query(
         None,
         description="Filter predictions from this year onwards",
-        ge=2000
+        ge=2000,
+        le=2100
     ),
     end_year: Optional[int] = Query(
         None,
         description="Filter predictions up to this year",
+        ge=2000,
         le=2100
     ),
     risk_category: Optional[str] = Query(
         None,
-        description="Filter by risk category: Low, Moderate, High, Critical"
+        description="Filter by risk category: Low, Moderate, High, Critical",
+        pattern="^(Low|Moderate|High|Critical)$"
     )
 ) -> CitywideRiskResponse:
     """
     Get all citywide flood risk predictions with filtering and statistics.
     
+    Public endpoint - no authentication required.
+    
     Args:
-        start_year: Optional start year filter
-        end_year: Optional end year filter
-        risk_category: Optional risk category filter
+        request: FastAPI request object
+        start_year: Optional start year filter (2000-2100)
+        end_year: Optional end year filter (2000-2100)
+        risk_category: Optional risk category filter (Low/Moderate/High/Critical)
         
     Returns:
         CitywideRiskResponse with predictions and summary statistics
         
     Raises:
-        HTTPException: If database query fails
+        HTTPException: If database query fails or validation errors
     """
+    client_ip = get_client_ip(request)
+    
+    # Validate year range if both provided
+    if start_year and end_year and start_year > end_year:
+        logger.warning(f"Invalid year range from {client_ip}: start_year > end_year")
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="start_year must be less than or equal to end_year"
+        )
+    
+    # Validate risk_category if provided (defense in depth)
+    if risk_category and risk_category not in ["Low", "Moderate", "High", "Critical"]:
+        logger.warning(f"Invalid risk_category from {client_ip}: {risk_category}")
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="risk_category must be one of: Low, Moderate, High, Critical"
+        )
+    
     try:
         supabase = get_supabase_client()
         
@@ -119,7 +151,7 @@ async def get_citywide_risk(
         response = query.execute()
         
         if not response.data:
-            logger.warning("No citywide risk data found")
+            logger.info(f"No citywide risk data found for filters: {client_ip}")
             return CitywideRiskResponse(
                 success=True,
                 data=[],
@@ -156,6 +188,8 @@ async def get_citywide_risk(
             }
         }
         
+        logger.info(f"Citywide risk data retrieved successfully for {client_ip}: {len(records)} records")
+        
         return CitywideRiskResponse(
             success=True,
             data=records,
@@ -164,7 +198,7 @@ async def get_citywide_risk(
         )
     
     except Exception as e:
-        logger.error(f"Error fetching citywide risk data: {str(e)}", exc_info=True)
+        logger.error(f"Error fetching citywide risk data from {client_ip}: {str(e)}", exc_info=True)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to retrieve citywide risk data: {str(e)}"

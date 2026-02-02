@@ -4,13 +4,17 @@ CHRIS Backend API - Main FastAPI Application.
 Chennai Hydro-Resilience Intelligence System (CHRIS) backend service.
 Provides REST APIs for flood risk prediction and sponge zone mapping.
 """
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.middleware.trustedhost import TrustedHostMiddleware
 from fastapi.responses import JSONResponse
+from fastapi.exceptions import RequestValidationError
+from starlette.exceptions import HTTPException as StarletteHTTPException
 import logging
 import os
 
 from src.api.routes import forecast_router, zones_router, citywide_router
+from src.middleware.rate_limit import rate_limit_middleware
 
 # Configure logging
 logging.basicConfig(
@@ -27,7 +31,7 @@ openapi_tags = [
     },
     {
         "name": "Forecast",
-        "description": "**Temporal LSTM Predictions** - Generate multi-year flood risk forecasts based on climate drivers (ONI, IOD) and rainfall patterns"
+        "description": "**Temporal LSTM Predictions** - Generate multi-year flood risk forecasts based on climate drivers (ONI, IOD) and rainfall patterns. **Protected routes require JWT authentication.**"
     },
     {
         "name": "Zones",
@@ -54,12 +58,21 @@ app = FastAPI(
     1. **LSTM (Temporal Engine)**: Predicts flood risk years using 100 years of rainfall data and climate indices
     2. **U-Net (Spatial Engine)**: Identifies sponge zones from satellite imagery for water storage
     
+    ## Security
+    
+    - **JWT Authentication**: Protected endpoints require valid Supabase JWT tokens via `Authorization: Bearer <token>` header
+    - **Rate Limiting**: Maximum 100 requests per 60 seconds per IP address
+    - **CORS**: Restricted to configured frontend origins only
+    - **Input Validation**: All inputs validated via Pydantic schemas with strict type checking
+    - **RLS Alignment**: Database queries respect Row-Level Security policies in Supabase
+    
     ## Key Features
     
     - 🔮 **5-Year Flood Forecasts**: Predict Critical/High/Moderate/Low risk years
     - 🗺️ **Sponge Zone Mapping**: GeoJSON-compliant terrain data for city planners
     - 📊 **Risk Analytics**: Aggregate statistics and trend analysis
     - 🔌 **ML Model Ready**: Supports .pkl and .onnx model uploads for real-time inference
+    - 🔒 **Secure by Design**: JWT verification, rate limiting, CORS protection, input sanitization
     
     ## Data Sources
     
@@ -67,19 +80,22 @@ app = FastAPI(
     - **Satellite Data**: Sentinel-1 (VV/VH radar), Sentinel-2 (MNDWI, NDVI)
     - **Database**: Supabase (PostgreSQL) with PostGIS extensions
     
-    ## WebSocket Support
-    
-    For real-time model training updates or live dashboard notifications, connect to:
-    - **WebSocket Endpoint**: `ws://your-domain/ws/updates`
-    - **Usage**: Subscribe to model inference events, zone update notifications
-    - **Authentication**: Optional token-based auth (future enhancement)
-    
-    Note: WebSocket routes will be added in future iterations for live data streaming.
-    
     ## Authentication
     
-    Currently using Supabase anonymous read access for public dashboard.
-    Future versions will support JWT-based authentication for administrative operations.
+    Protected endpoints (e.g., POST /api/v1/forecast/) require a valid JWT token from Supabase:
+    
+    ```
+    Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+    ```
+    
+    Public read endpoints (e.g., GET /api/v1/map/sponge-zones) do not require authentication.
+    
+    ## Rate Limiting
+    
+    All endpoints are subject to rate limiting:
+    - **Limit**: 100 requests per 60 seconds per IP address
+    - **Headers**: `X-RateLimit-Limit`, `X-RateLimit-Remaining`, `X-RateLimit-Reset`
+    - **Response**: 429 Too Many Requests when limit exceeded
     """,
     version="1.0.0",
     openapi_tags=openapi_tags,
@@ -93,22 +109,85 @@ app = FastAPI(
     }
 )
 
-# CORS configuration
-frontend_origin = os.getenv("FRONTEND_ORIGIN", "*")
-logger.info(f"Configuring CORS for origin: {frontend_origin}")
+# CORS configuration - TIGHTENED
+allowed_origins_str = os.getenv("ALLOWED_ORIGINS", "")
+if allowed_origins_str:
+    allowed_origins = [origin.strip() for origin in allowed_origins_str.split(",")]
+else:
+    # Fallback to frontend URL if ALLOWED_ORIGINS not set
+    frontend_url = os.getenv("FRONTEND_URL", "*")
+    allowed_origins = [frontend_url] if frontend_url != "*" else ["*"]
+
+# Parse allowed methods and headers
+allowed_methods_str = os.getenv("ALLOWED_METHODS", "GET,POST,PUT,DELETE,OPTIONS")
+allowed_methods = [method.strip() for method in allowed_methods_str.split(",")]
+
+allowed_headers_str = os.getenv("ALLOWED_HEADERS", "Content-Type,Authorization")
+allowed_headers = [header.strip() for header in allowed_headers_str.split(",")]
+
+logger.info(f"Configuring CORS - Allowed origins: {allowed_origins}")
+logger.info(f"Allowed methods: {allowed_methods}")
+logger.info(f"Allowed headers: {allowed_headers}")
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[frontend_origin] if frontend_origin != "*" else ["*"],
+    allow_origins=allowed_origins,
     allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_methods=allowed_methods,
+    allow_headers=allowed_headers,
+    max_age=int(os.getenv("CORS_MAX_AGE", "3600"))
 )
+
+# Add rate limiting middleware
+app.middleware("http")(rate_limit_middleware)
+
+# Add trusted host middleware if not in development
+if os.getenv("NODE_ENV") != "development":
+    backend_url = os.getenv("BACKEND_URL", "")
+    if backend_url:
+        # Extract host from URL
+        host = backend_url.replace("https://", "").replace("http://", "").split(":")[0]
+        app.add_middleware(
+            TrustedHostMiddleware,
+            allowed_hosts=[host, "localhost", "127.0.0.1"]
+        )
+        logger.info(f"Trusted host middleware enabled for: {host}")
 
 # Register routers
 app.include_router(forecast_router)
 app.include_router(zones_router)
 app.include_router(citywide_router)
+
+
+# Global exception handlers for better error responses
+@app.exception_handler(RequestValidationError)
+async def validation_exception_handler(request: Request, exc: RequestValidationError):
+    """
+    Handle Pydantic validation errors with detailed messages.
+    """
+    logger.warning(f"Validation error on {request.url.path}: {exc.errors()}")
+    return JSONResponse(
+        status_code=422,
+        content={
+            "error": "Validation Error",
+            "detail": exc.errors(),
+            "message": "Request data failed validation. Please check the documentation."
+        }
+    )
+
+
+@app.exception_handler(StarletteHTTPException)
+async def http_exception_handler(request: Request, exc: StarletteHTTPException):
+    """
+    Handle HTTP exceptions with consistent format.
+    """
+    return JSONResponse(
+        status_code=exc.status_code,
+        content={
+            "error": f"HTTP {exc.status_code}",
+            "detail": exc.detail
+        }
+    )
 
 
 # Health check endpoint
@@ -130,7 +209,12 @@ def health_check():
             "status": "healthy",
             "service": "CHRIS Backend API",
             "version": "1.0.0",
-            "message": "Chennai Hydro-Resilience Intelligence System is operational"
+            "message": "Chennai Hydro-Resilience Intelligence System is operational",
+            "security": {
+                "jwt_auth": "enabled" if os.getenv("SUPABASE_JWT_SECRET") else "not_configured",
+                "rate_limiting": "enabled",
+                "cors": "restricted" if allowed_origins != ["*"] else "permissive"
+            }
         }
     )
 
@@ -144,6 +228,7 @@ async def startup_event():
     - Verify Supabase connection
     - Load ML models if available
     - Log configuration status
+    - Validate security settings
     """
     logger.info("=== CHRIS Backend API Starting ===")
     logger.info("OpenAPI docs available at: /docs")
@@ -152,6 +237,7 @@ async def startup_event():
     # Check for environment variables
     supabase_url = os.getenv("SUPABASE_URL")
     supabase_key = os.getenv("SUPABASE_KEY")
+    supabase_jwt_secret = os.getenv("SUPABASE_JWT_SECRET")
     
     if not supabase_url or not supabase_key:
         logger.warning(
@@ -160,6 +246,14 @@ async def startup_event():
         )
     else:
         logger.info("✅ Supabase credentials configured")
+    
+    if not supabase_jwt_secret:
+        logger.warning(
+            "⚠️  SUPABASE_JWT_SECRET not configured. "
+            "JWT authentication will not work. Add this to .env for protected endpoints."
+        )
+    else:
+        logger.info("✅ JWT authentication enabled")
     
     # Check for ML model paths
     lstm_path = os.getenv("LSTM_MODEL_PATH")
@@ -175,6 +269,11 @@ async def startup_event():
     else:
         logger.info("ℹ️  No U-Net model path configured. Using database zone data.")
     
+    # Log security configuration
+    logger.info("=== Security Configuration ===")
+    logger.info(f"Rate Limiting: {os.getenv('RATE_LIMIT_MAX', '100')} requests per {os.getenv('RATE_LIMIT_WINDOW_S', '60')}s")
+    logger.info(f"CORS Origins: {allowed_origins}")
+    logger.info(f"JWT Auth: {'Enabled' if supabase_jwt_secret else 'Disabled'}")
     logger.info("=== Startup Complete ===")
 
 

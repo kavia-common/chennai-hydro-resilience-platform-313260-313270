@@ -2,9 +2,9 @@
 Pydantic schemas for sponge zone mapping endpoints.
 
 These models define the GeoJSON-compliant structure for spatial
-U-Net-based sponge zone data.
+U-Net-based sponge zone data with enhanced validation.
 """
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator, ConfigDict
 from typing import Optional, List, Dict, Any
 
 
@@ -12,8 +12,18 @@ class ZoneProperties(BaseModel):
     """
     Properties for a single sponge zone (GeoJSON Feature properties).
     """
-    zone_id: str = Field(..., description="Zone identifier (e.g., 'Z001')")
-    zone_name: str = Field(..., description="Human-readable zone name")
+    zone_id: str = Field(
+        ...,
+        min_length=1,
+        max_length=20,
+        description="Zone identifier (e.g., 'Z001')"
+    )
+    zone_name: str = Field(
+        ...,
+        min_length=1,
+        max_length=200,
+        description="Human-readable zone name"
+    )
     capacity_score: float = Field(
         ...,
         ge=0.0,
@@ -26,32 +36,56 @@ class ZoneProperties(BaseModel):
     )
     vv_amplitude: Optional[float] = Field(
         None,
-        description="Sentinel-1 VV polarization amplitude (dB)"
+        ge=-30.0,
+        le=0.0,
+        description="Sentinel-1 VV polarization amplitude (dB, typically -30 to 0)"
     )
     vh_backscatter: Optional[float] = Field(
         None,
-        description="Sentinel-1 VH backscatter coefficient (dB)"
+        ge=-30.0,
+        le=0.0,
+        description="Sentinel-1 VH backscatter coefficient (dB, typically -30 to 0)"
     )
     mndwi: Optional[float] = Field(
         None,
         ge=-1.0,
         le=1.0,
-        description="Modified Normalized Difference Water Index"
+        description="Modified Normalized Difference Water Index (-1 to 1)"
     )
     ndvi: Optional[float] = Field(
         None,
         ge=-1.0,
         le=1.0,
-        description="Normalized Difference Vegetation Index"
+        description="Normalized Difference Vegetation Index (-1 to 1)"
     )
     terrain_type: Optional[str] = Field(
         None,
+        max_length=100,
         description="Terrain classification (e.g., 'Wetland', 'Marsh')"
     )
     recommendation: Optional[str] = Field(
         None,
+        max_length=500,
         description="Action recommendation for city planners"
     )
+    
+    @field_validator('capacity_category')
+    @classmethod
+    def validate_capacity_category(cls, v):
+        """Ensure capacity category is valid."""
+        valid_categories = ['Low', 'Moderate', 'High']
+        if v not in valid_categories:
+            raise ValueError(f'capacity_category must be one of {valid_categories}')
+        return v
+    
+    @field_validator('zone_id')
+    @classmethod
+    def validate_zone_id(cls, v):
+        """Sanitize zone_id to prevent injection."""
+        # Only allow alphanumeric and underscore/dash
+        if not v.replace('_', '').replace('-', '').isalnum():
+            raise ValueError('zone_id must contain only alphanumeric characters, underscores, and dashes')
+        return v
 
 
 class SpongeZoneFeature(BaseModel):
@@ -67,9 +101,17 @@ class SpongeZoneFeature(BaseModel):
         description="GeoJSON Polygon geometry with coordinates"
     )
     properties: ZoneProperties = Field(..., description="Zone metadata")
-
-    class Config:
-        json_schema_extra = {
+    
+    @field_validator('type')
+    @classmethod
+    def validate_type(cls, v):
+        """Ensure type is 'Feature'."""
+        if v != "Feature":
+            raise ValueError('type must be "Feature"')
+        return v
+    
+    model_config = ConfigDict(
+        json_schema_extra={
             "example": {
                 "type": "Feature",
                 "id": "Z001",
@@ -95,6 +137,7 @@ class SpongeZoneFeature(BaseModel):
                 }
             }
         }
+    )
 
 
 class SpongeZoneCollection(BaseModel):
@@ -112,9 +155,17 @@ class SpongeZoneCollection(BaseModel):
         None,
         description="Additional metadata (model version, timestamp, etc.)"
     )
-
-    class Config:
-        json_schema_extra = {
+    
+    @field_validator('type')
+    @classmethod
+    def validate_type(cls, v):
+        """Ensure type is 'FeatureCollection'."""
+        if v != "FeatureCollection":
+            raise ValueError('type must be "FeatureCollection"')
+        return v
+    
+    model_config = ConfigDict(
+        json_schema_extra={
             "example": {
                 "type": "FeatureCollection",
                 "features": [],
@@ -125,6 +176,7 @@ class SpongeZoneCollection(BaseModel):
                 }
             }
         }
+    )
 
 
 class ZoneDetailResponse(BaseModel):
@@ -140,9 +192,9 @@ class ZoneDetailResponse(BaseModel):
         None,
         description="Error message or additional info"
     )
-
-    class Config:
-        json_schema_extra = {
+    
+    model_config = ConfigDict(
+        json_schema_extra={
             "example": {
                 "success": True,
                 "data": {
@@ -158,3 +210,4 @@ class ZoneDetailResponse(BaseModel):
                 "message": None
             }
         }
+    )

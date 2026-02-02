@@ -2,9 +2,9 @@
 Pydantic schemas for flood risk forecast endpoints.
 
 These models define the request/response structure for the temporal
-LSTM-based flood prediction API.
+LSTM-based flood prediction API with enhanced validation.
 """
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator, ConfigDict
 from typing import Optional, List
 from datetime import datetime
 
@@ -14,18 +14,37 @@ class ForecastRequest(BaseModel):
     Request schema for generating flood risk forecasts.
     
     Attributes:
-        years: Number of years to forecast (default: 5, max: 10)
+        years: Number of years to forecast (default: 5, range: 1-10)
         include_climate_factors: Whether to include ONI/IOD anomalies in response
     """
     years: int = Field(
         default=5,
         ge=1,
         le=10,
-        description="Number of years to forecast into the future"
+        description="Number of years to forecast into the future (1-10)"
     )
     include_climate_factors: bool = Field(
         default=True,
         description="Include climate driver data (ONI, IOD) in response"
+    )
+    
+    @field_validator('years')
+    @classmethod
+    def validate_years(cls, v):
+        """Ensure years is within reasonable bounds."""
+        if v < 1:
+            raise ValueError('years must be at least 1')
+        if v > 10:
+            raise ValueError('years cannot exceed 10')
+        return v
+    
+    model_config = ConfigDict(
+        json_schema_extra={
+            "example": {
+                "years": 5,
+                "include_climate_factors": True
+            }
+        }
     )
 
 
@@ -36,7 +55,12 @@ class CitywideRiskRecord(BaseModel):
     This matches the 'citywide_risk' Supabase table schema.
     """
     id: Optional[str] = Field(None, description="UUID primary key")
-    year: int = Field(..., description="Forecast year")
+    year: int = Field(
+        ...,
+        ge=2000,
+        le=2100,
+        description="Forecast year (2000-2100)"
+    )
     risk_score: float = Field(
         ...,
         ge=0.0,
@@ -49,15 +73,21 @@ class CitywideRiskRecord(BaseModel):
     )
     oni_anomaly: Optional[float] = Field(
         None,
-        description="NOAA ONI El Niño index anomaly"
+        ge=-3.0,
+        le=3.0,
+        description="NOAA ONI El Niño index anomaly (-3 to +3)"
     )
     iod_anomaly: Optional[float] = Field(
         None,
-        description="Indian Ocean Dipole anomaly"
+        ge=-2.0,
+        le=2.0,
+        description="Indian Ocean Dipole anomaly (-2 to +2)"
     )
     predicted_rainfall_mm: Optional[float] = Field(
         None,
-        description="Predicted annual rainfall in millimeters"
+        ge=0.0,
+        le=5000.0,
+        description="Predicted annual rainfall in millimeters (0-5000)"
     )
     confidence: Optional[float] = Field(
         None,
@@ -67,9 +97,18 @@ class CitywideRiskRecord(BaseModel):
     )
     created_at: Optional[datetime] = Field(None, description="Record creation timestamp")
     updated_at: Optional[datetime] = Field(None, description="Record last update timestamp")
-
-    class Config:
-        json_schema_extra = {
+    
+    @field_validator('risk_category')
+    @classmethod
+    def validate_risk_category(cls, v):
+        """Ensure risk category is valid."""
+        valid_categories = ['Low', 'Moderate', 'High', 'Critical']
+        if v not in valid_categories:
+            raise ValueError(f'risk_category must be one of {valid_categories}')
+        return v
+    
+    model_config = ConfigDict(
+        json_schema_extra={
             "example": {
                 "year": 2027,
                 "risk_score": 88.7,
@@ -80,6 +119,7 @@ class CitywideRiskRecord(BaseModel):
                 "confidence": 0.87
             }
         }
+    )
 
 
 class ForecastResponse(BaseModel):
@@ -105,9 +145,9 @@ class ForecastResponse(BaseModel):
         None,
         description="Additional information or warnings"
     )
-
-    class Config:
-        json_schema_extra = {
+    
+    model_config = ConfigDict(
+        json_schema_extra={
             "example": {
                 "success": True,
                 "data": [
@@ -119,8 +159,9 @@ class ForecastResponse(BaseModel):
                         "confidence": 0.82
                     }
                 ],
-                "model_version": "v1.0-lstm-placeholder",
+                "model_version": "v1.0-lstm-precomputed",
                 "generated_at": "2026-02-02T10:30:00Z",
                 "message": "Using pre-computed predictions. ML model integration pending."
             }
         }
+    )

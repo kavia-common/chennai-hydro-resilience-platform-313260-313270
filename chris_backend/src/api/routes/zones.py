@@ -5,10 +5,11 @@ PUBLIC_INTERFACE: GET /api/v1/map/sponge-zones
 PUBLIC_INTERFACE: GET /api/v1/zone-details
 Returns GeoJSON-compliant sponge zone mapping data from U-Net satellite analysis.
 """
-from fastapi import APIRouter, HTTPException, Query, status
+from fastapi import APIRouter, HTTPException, Query, status, Request
 from datetime import datetime
 from typing import Optional, List
 import logging
+import re
 
 from src.schemas.zone import (
     SpongeZoneCollection,
@@ -17,10 +18,36 @@ from src.schemas.zone import (
     ZoneDetailResponse
 )
 from src.utils.supabase_client import get_supabase_client
+from src.middleware.rate_limit import get_client_ip
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/v1", tags=["Zones"])
+
+
+def _sanitize_zone_id(zone_id: str) -> str:
+    """
+    Sanitize zone_id to prevent injection attacks.
+    
+    Args:
+        zone_id: Raw zone ID from request
+        
+    Returns:
+        Sanitized zone ID
+        
+    Raises:
+        ValueError: If zone_id contains invalid characters
+    """
+    # Remove any characters that aren't alphanumeric, underscore, or dash
+    sanitized = re.sub(r'[^a-zA-Z0-9_-]', '', zone_id)
+    
+    if sanitized != zone_id:
+        raise ValueError("Invalid characters in zone_id. Only alphanumeric, underscore, and dash allowed.")
+    
+    if len(sanitized) == 0 or len(sanitized) > 20:
+        raise ValueError("zone_id must be between 1 and 20 characters")
+    
+    return sanitized
 
 
 def _convert_to_geojson_feature(zone_record: dict) -> SpongeZoneFeature:
@@ -67,6 +94,8 @@ def _convert_to_geojson_feature(zone_record: dict) -> SpongeZoneFeature:
     description="""
     Retrieve all sponge zones as a GeoJSON FeatureCollection for map visualization.
     
+    **Public Endpoint** - No authentication required for read access.
+    
     **Data Source:** U-Net semantic segmentation of Sentinel-1/2 satellite imagery
     
     **Use Case:** 
@@ -81,6 +110,8 @@ def _convert_to_geojson_feature(zone_record: dict) -> SpongeZoneFeature:
     **Response Format:** RFC 7946 compliant GeoJSON FeatureCollection
     
     **Note:** Geometry coordinates are in WGS84 (EPSG:4326) format [longitude, latitude].
+    
+    **Rate Limiting:** Subject to global rate limits (100 req/60s per IP)
     """,
     responses={
         200: {
@@ -112,23 +143,31 @@ def _convert_to_geojson_feature(zone_record: dict) -> SpongeZoneFeature:
                 }
             }
         },
+        422: {"description": "Validation error - Invalid query parameters"},
+        429: {"description": "Too many requests - Rate limit exceeded"},
         500: {"description": "Database error"}
     }
 )
 async def get_sponge_zones(
+    request: Request,
     capacity_category: Optional[str] = Query(
         None,
-        description="Filter by capacity category: Low, Moderate, High"
+        description="Filter by capacity category: Low, Moderate, High",
+        pattern="^(Low|Moderate|High)$"
     ),
     terrain_type: Optional[str] = Query(
         None,
-        description="Filter by terrain type (e.g., 'Wetland', 'Marsh')"
+        description="Filter by terrain type (e.g., 'Wetland', 'Marsh')",
+        max_length=100
     )
 ) -> SpongeZoneCollection:
     """
     Retrieve all sponge zones as GeoJSON FeatureCollection.
     
+    Public endpoint - no authentication required.
+    
     Args:
+        request: FastAPI request object
         capacity_category: Optional filter for capacity level
         terrain_type: Optional filter for terrain classification
         
@@ -136,8 +175,25 @@ async def get_sponge_zones(
         GeoJSON FeatureCollection with all zones
         
     Raises:
-        HTTPException: If database query fails
+        HTTPException: If database query fails or validation errors
     """
+    client_ip = get_client_ip(request)
+    
+    # Validate capacity_category if provided (defense in depth)
+    if capacity_category and capacity_category not in ["Low", "Moderate", "High"]:
+        logger.warning(f"Invalid capacity_category from {client_ip}: {capacity_category}")
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="capacity_category must be one of: Low, Moderate, High"
+        )
+    
+    # Sanitize terrain_type if provided
+    if terrain_type:
+        # Remove any potentially dangerous characters
+        terrain_type = re.sub(r'[^\w\s-]', '', terrain_type).strip()
+        if len(terrain_type) > 100:
+            terrain_type = terrain_type[:100]
+    
     try:
         supabase = get_supabase_client()
         
@@ -156,7 +212,7 @@ async def get_sponge_zones(
         response = query.execute()
         
         if not response.data:
-            logger.warning("No sponge zones found in database")
+            logger.info(f"No sponge zones found for filters from {client_ip}")
             return SpongeZoneCollection(
                 type="FeatureCollection",
                 features=[],
@@ -173,6 +229,8 @@ async def get_sponge_zones(
             _convert_to_geojson_feature(record) for record in response.data
         ]
         
+        logger.info(f"Sponge zones retrieved successfully for {client_ip}: {len(features)} zones")
+        
         return SpongeZoneCollection(
             type="FeatureCollection",
             features=features,
@@ -188,7 +246,7 @@ async def get_sponge_zones(
         )
     
     except Exception as e:
-        logger.error(f"Error fetching sponge zones: {str(e)}", exc_info=True)
+        logger.error(f"Error fetching sponge zones from {client_ip}: {str(e)}", exc_info=True)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to retrieve sponge zones: {str(e)}"
@@ -204,39 +262,62 @@ async def get_sponge_zones(
     description="""
     Retrieve detailed information for a specific sponge zone by zone_id.
     
+    **Public Endpoint** - No authentication required for read access.
+    
     **Use Case:** 
     - Display detailed popup when user clicks a zone on the map
     - Show satellite indices (MNDWI, NDVI, VV/VH backscatter)
     - Display city planner recommendations
     
     **Query Parameters:**
-    - `zone_id` (required): Zone identifier (e.g., 'Z001')
+    - `zone_id` (required): Zone identifier (e.g., 'Z001') - must be alphanumeric with optional dash/underscore
+    
+    **Rate Limiting:** Subject to global rate limits (100 req/60s per IP)
     """,
     responses={
         200: {"description": "Zone details retrieved successfully"},
         404: {"description": "Zone not found"},
+        422: {"description": "Validation error - Invalid zone_id format"},
+        429: {"description": "Too many requests - Rate limit exceeded"},
         500: {"description": "Database error"}
     }
 )
 async def get_zone_details(
+    request: Request,
     zone_id: str = Query(
         ...,
         description="Zone identifier (e.g., 'Z001')",
-        min_length=1
+        min_length=1,
+        max_length=20
     )
 ) -> ZoneDetailResponse:
     """
     Get detailed information for a specific sponge zone.
     
+    Public endpoint - no authentication required.
+    
     Args:
+        request: FastAPI request object
         zone_id: Zone identifier to lookup
         
     Returns:
         ZoneDetailResponse with complete zone data
         
     Raises:
-        HTTPException: If zone not found or database error
+        HTTPException: If zone not found, validation error, or database error
     """
+    client_ip = get_client_ip(request)
+    
+    # Sanitize zone_id
+    try:
+        zone_id = _sanitize_zone_id(zone_id)
+    except ValueError as e:
+        logger.warning(f"Invalid zone_id from {client_ip}: {zone_id} - {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=str(e)
+        )
+    
     try:
         supabase = get_supabase_client()
         
@@ -246,6 +327,7 @@ async def get_zone_details(
             .execute()
         
         if not response.data:
+            logger.info(f"Zone not found from {client_ip}: {zone_id}")
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail=f"Zone '{zone_id}' not found"
@@ -253,6 +335,8 @@ async def get_zone_details(
         
         zone_record = response.data[0]
         feature = _convert_to_geojson_feature(zone_record)
+        
+        logger.info(f"Zone details retrieved successfully for {client_ip}: {zone_id}")
         
         return ZoneDetailResponse(
             success=True,
@@ -263,7 +347,7 @@ async def get_zone_details(
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Error fetching zone details: {str(e)}", exc_info=True)
+        logger.error(f"Error fetching zone details from {client_ip}: {str(e)}", exc_info=True)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to retrieve zone details: {str(e)}"

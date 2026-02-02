@@ -1,9 +1,10 @@
 """
 Pydantic schemas for citywide risk aggregation endpoints.
 
-These models define the response structure for overall city flood risk data.
+These models define the response structure for overall city flood risk data
+with enhanced validation.
 """
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator, ConfigDict
 from typing import List, Optional
 from .forecast import CitywideRiskRecord
 
@@ -25,11 +26,22 @@ class CitywideRiskResponse(BaseModel):
     )
     message: Optional[str] = Field(
         None,
+        max_length=500,
         description="Additional information"
     )
-
-    class Config:
-        json_schema_extra = {
+    
+    @field_validator('data')
+    @classmethod
+    def validate_data_order(cls, v):
+        """Ensure data is ordered by year if not empty."""
+        if len(v) > 1:
+            years = [record.year for record in v]
+            if years != sorted(years):
+                raise ValueError('data must be ordered by year')
+        return v
+    
+    model_config = ConfigDict(
+        json_schema_extra={
             "example": {
                 "success": True,
                 "data": [
@@ -53,3 +65,4 @@ class CitywideRiskResponse(BaseModel):
                 "message": None
             }
         }
+    )
