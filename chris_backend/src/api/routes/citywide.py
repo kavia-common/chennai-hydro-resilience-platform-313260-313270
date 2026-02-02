@@ -1,0 +1,171 @@
+"""
+Citywide Risk API routes for aggregate flood risk data.
+
+PUBLIC_INTERFACE: GET /api/v1/citywide-risk
+Returns all citywide risk predictions with aggregate statistics.
+"""
+from fastapi import APIRouter, HTTPException, Query, status
+from typing import Optional, List
+import logging
+
+from src.schemas.citywide import CitywideRiskResponse
+from src.schemas.forecast import CitywideRiskRecord
+from src.utils.supabase_client import get_supabase_client
+
+logger = logging.getLogger(__name__)
+
+router = APIRouter(prefix="/api/v1", tags=["Citywide Risk"])
+
+
+# PUBLIC_INTERFACE
+@router.get(
+    "/citywide-risk",
+    response_model=CitywideRiskResponse,
+    status_code=status.HTTP_200_OK,
+    summary="Get citywide flood risk data",
+    description="""
+    Retrieve all citywide flood risk predictions with aggregate statistics.
+    
+    **Use Case:**
+    - Display historical and forecasted risk trends in charts
+    - Highlight critical risk years
+    - Show aggregate statistics (highest risk year, average score)
+    
+    **Query Parameters:**
+    - `start_year`: Filter predictions starting from this year (optional)
+    - `end_year`: Filter predictions up to this year (optional)
+    - `risk_category`: Filter by risk level (Low, Moderate, High, Critical) (optional)
+    
+    **Response includes:**
+    - All risk predictions ordered by year
+    - Summary statistics (highest risk year, average risk score)
+    - Risk trend indicators
+    """,
+    responses={
+        200: {
+            "description": "Citywide risk data retrieved successfully",
+            "content": {
+                "application/json": {
+                    "example": {
+                        "success": True,
+                        "data": [
+                            {
+                                "year": 2025,
+                                "risk_score": 65.5,
+                                "risk_category": "Moderate",
+                                "predicted_rainfall_mm": 1250.5
+                            }
+                        ],
+                        "summary": {
+                            "highest_risk_year": 2027,
+                            "highest_risk_score": 88.7,
+                            "average_risk_score": 65.5,
+                            "critical_years": [2027]
+                        }
+                    }
+                }
+            }
+        },
+        500: {"description": "Database error"}
+    }
+)
+async def get_citywide_risk(
+    start_year: Optional[int] = Query(
+        None,
+        description="Filter predictions from this year onwards",
+        ge=2000
+    ),
+    end_year: Optional[int] = Query(
+        None,
+        description="Filter predictions up to this year",
+        le=2100
+    ),
+    risk_category: Optional[str] = Query(
+        None,
+        description="Filter by risk category: Low, Moderate, High, Critical"
+    )
+) -> CitywideRiskResponse:
+    """
+    Get all citywide flood risk predictions with filtering and statistics.
+    
+    Args:
+        start_year: Optional start year filter
+        end_year: Optional end year filter
+        risk_category: Optional risk category filter
+        
+    Returns:
+        CitywideRiskResponse with predictions and summary statistics
+        
+    Raises:
+        HTTPException: If database query fails
+    """
+    try:
+        supabase = get_supabase_client()
+        
+        # Build query
+        query = supabase.table("citywide_risk").select("*")
+        
+        # Apply filters
+        if start_year:
+            query = query.gte("year", start_year)
+        if end_year:
+            query = query.lte("year", end_year)
+        if risk_category:
+            query = query.eq("risk_category", risk_category)
+        
+        # Order by year
+        query = query.order("year")
+        
+        response = query.execute()
+        
+        if not response.data:
+            logger.warning("No citywide risk data found")
+            return CitywideRiskResponse(
+                success=True,
+                data=[],
+                summary={
+                    "total_years": 0,
+                    "message": "No risk data found. Ensure citywide_risk table is populated."
+                },
+                message="No data available for the specified filters."
+            )
+        
+        # Convert to Pydantic models
+        records: List[CitywideRiskRecord] = [
+            CitywideRiskRecord(**record) for record in response.data
+        ]
+        
+        # Calculate aggregate statistics
+        risk_scores = [r.risk_score for r in records]
+        critical_years = [r.year for r in records if r.risk_category == "Critical"]
+        high_years = [r.year for r in records if r.risk_category == "High"]
+        
+        highest_risk_record = max(records, key=lambda r: r.risk_score)
+        
+        summary = {
+            "total_years": len(records),
+            "highest_risk_year": highest_risk_record.year,
+            "highest_risk_score": highest_risk_record.risk_score,
+            "highest_risk_category": highest_risk_record.risk_category,
+            "average_risk_score": round(sum(risk_scores) / len(risk_scores), 2),
+            "critical_years": critical_years,
+            "high_risk_years": high_years,
+            "year_range": {
+                "start": min(r.year for r in records),
+                "end": max(r.year for r in records)
+            }
+        }
+        
+        return CitywideRiskResponse(
+            success=True,
+            data=records,
+            summary=summary,
+            message=None
+        )
+    
+    except Exception as e:
+        logger.error(f"Error fetching citywide risk data: {str(e)}", exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to retrieve citywide risk data: {str(e)}"
+        )
