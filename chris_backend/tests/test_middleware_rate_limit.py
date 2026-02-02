@@ -154,6 +154,9 @@ class TestRateLimitMiddleware:
         """Test that middleware blocks requests over limit."""
         from src.middleware.rate_limit import _rate_limiter
         
+        # Clear any existing state
+        _rate_limiter.requests.clear()
+        
         # Store original max and set a lower limit for testing
         original_max = _rate_limiter.max_requests
         _rate_limiter.max_requests = 5
@@ -170,5 +173,6 @@ class TestRateLimitMiddleware:
             assert last_response.status_code == status.HTTP_429_TOO_MANY_REQUESTS
             assert "Rate limit exceeded" in last_response.json()["detail"]["error"]
         finally:
-            # Restore original limit
+            # Restore original limit and clear state
             _rate_limiter.max_requests = original_max
+            _rate_limiter.requests.clear()

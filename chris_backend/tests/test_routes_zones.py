@@ -10,10 +10,10 @@ from unittest.mock import patch, MagicMock
 class TestSpongeZonesEndpoint:
     """Tests for GET /api/v1/map/sponge-zones endpoint."""
     
-    @patch("src.api.routes.zones.get_supabase_client")
     @patch("src.api.routes.zones.get_cache")
+    @patch("src.utils.supabase_client.get_supabase_client")
     def test_get_sponge_zones_returns_geojson(
-        self, mock_get_cache, mock_get_client, client, sample_zone_data, mock_cache
+        self, mock_get_client, mock_get_cache, client, sample_zone_data, mock_cache
     ):
         """Test that sponge zones endpoint returns GeoJSON FeatureCollection."""
         # Mock cache to return None (cache miss)
@@ -62,7 +62,7 @@ class TestSpongeZonesEndpoint:
         assert data["metadata"]["total_zones"] == 2
     
     @patch("src.api.routes.zones.get_cache")
-    @patch("src.api.routes.zones.get_supabase_client")
+    @patch("src.utils.supabase_client.get_supabase_client")
     def test_get_sponge_zones_uses_cache(
         self, mock_get_client, mock_get_cache, client, mock_cache, sample_zone_data
     ):
@@ -110,7 +110,7 @@ class TestSpongeZonesEndpoint:
         assert response1.json() == response2.json()
     
     @patch("src.api.routes.zones.get_cache")
-    @patch("src.api.routes.zones.get_supabase_client")
+    @patch("src.utils.supabase_client.get_supabase_client")
     def test_get_sponge_zones_filters_by_capacity(
         self, mock_get_client, mock_get_cache, client, sample_zone_data, mock_cache
     ):
@@ -162,7 +162,7 @@ class TestSpongeZonesEndpoint:
         assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
     
     @patch("src.api.routes.zones.get_cache")
-    @patch("src.api.routes.zones.get_supabase_client")
+    @patch("src.utils.supabase_client.get_supabase_client")
     def test_get_sponge_zones_pagination(
         self, mock_get_client, mock_get_cache, client, sample_zone_data, mock_cache
     ):
@@ -217,7 +217,7 @@ class TestSpongeZonesEndpoint:
         assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
     
     @patch("src.api.routes.zones.get_cache")
-    @patch("src.api.routes.zones.get_supabase_client")
+    @patch("src.utils.supabase_client.get_supabase_client")
     def test_get_sponge_zones_handles_empty_result(
         self, mock_get_client, mock_get_cache, client, mock_cache
     ):
@@ -266,7 +266,7 @@ class TestZoneDetailsEndpoint:
     """Tests for GET /api/v1/zone-details endpoint."""
     
     @patch("src.api.routes.zones.get_cache")
-    @patch("src.api.routes.zones.get_supabase_client")
+    @patch("src.utils.supabase_client.get_supabase_client")
     def test_get_zone_details_returns_single_zone(
         self, mock_get_client, mock_get_cache, client, sample_zone_data, mock_cache
     ):
@@ -293,7 +293,7 @@ class TestZoneDetailsEndpoint:
         assert data["data"]["properties"]["zone_name"] == "Adyar River Basin Zone 4"
     
     @patch("src.api.routes.zones.get_cache")
-    @patch("src.api.routes.zones.get_supabase_client")
+    @patch("src.utils.supabase_client.get_supabase_client")
     def test_get_zone_details_not_found(
         self, mock_get_client, mock_get_cache, client, mock_cache
     ):
@@ -332,7 +332,7 @@ class TestZoneDetailsEndpoint:
         assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
     
     @patch("src.api.routes.zones.get_cache")
-    @patch("src.api.routes.zones.get_supabase_client")
+    @patch("src.utils.supabase_client.get_supabase_client")
     def test_get_zone_details_uses_cache(
         self, mock_get_client, mock_get_cache, client, mock_cache, sample_zone_data
     ):

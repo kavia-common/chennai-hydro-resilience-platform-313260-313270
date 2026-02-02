@@ -56,7 +56,7 @@ class TestZonesIntegration:
     """Integration tests for zones workflow."""
     
     @patch("src.api.routes.zones.get_cache")
-    @patch("src.api.routes.zones.get_supabase_client")
+    @patch("src.utils.supabase_client.get_supabase_client")
     def test_full_zones_workflow(
         self, mock_get_client, mock_get_cache, client, sample_zone_data, mock_cache
     ):
@@ -114,6 +114,9 @@ class TestSecurityIntegration:
         """Test that rate limiting is enforced across requests."""
         from src.middleware.rate_limit import _rate_limiter
         
+        # Clear any existing state
+        _rate_limiter.requests.clear()
+        
         # Temporarily set a lower limit for this test
         original_max = _rate_limiter.max_requests
         _rate_limiter.max_requests = 5
@@ -132,8 +135,9 @@ class TestSecurityIntegration:
             assert successful_requests <= 5
             assert successful_requests > 0
         finally:
-            # Restore original limit
+            # Restore original limit and clear state
             _rate_limiter.max_requests = original_max
+            _rate_limiter.requests.clear()
     
     def test_authentication_flow(self, client, mock_jwt_token):
         """Test authentication across multiple requests."""
@@ -167,7 +171,7 @@ class TestCachingIntegration:
     """Integration tests for caching behavior."""
     
     @patch("src.api.routes.zones.get_cache")
-    @patch("src.api.routes.zones.get_supabase_client")
+    @patch("src.utils.supabase_client.get_supabase_client")
     def test_caching_reduces_database_calls(
         self, mock_get_client, mock_get_cache, client, mock_cache, sample_zone_data
     ):

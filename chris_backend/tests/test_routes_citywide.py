@@ -11,7 +11,7 @@ class TestCitywideRiskEndpoint:
     """Tests for GET /api/v1/citywide-risk endpoint."""
     
     @patch("src.api.routes.citywide.get_cache")
-    @patch("src.api.routes.citywide.get_supabase_client")
+    @patch("src.utils.supabase_client.get_supabase_client")
     def test_get_citywide_risk_returns_data(
         self, mock_get_client, mock_get_cache, client, sample_citywide_risk_data, mock_cache
     ):
@@ -65,7 +65,7 @@ class TestCitywideRiskEndpoint:
         assert data["summary"]["highest_risk_score"] == 88.7
     
     @patch("src.api.routes.citywide.get_cache")
-    @patch("src.api.routes.citywide.get_supabase_client")
+    @patch("src.utils.supabase_client.get_supabase_client")
     def test_get_citywide_risk_filters_by_year_range(
         self, mock_get_client, mock_get_cache, client, sample_citywide_risk_data, mock_cache
     ):
@@ -125,7 +125,7 @@ class TestCitywideRiskEndpoint:
         assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
     
     @patch("src.api.routes.citywide.get_cache")
-    @patch("src.api.routes.citywide.get_supabase_client")
+    @patch("src.utils.supabase_client.get_supabase_client")
     def test_get_citywide_risk_filters_by_category(
         self, mock_get_client, mock_get_cache, client, sample_citywide_risk_data, mock_cache
     ):
@@ -180,7 +180,7 @@ class TestCitywideRiskEndpoint:
         assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
     
     @patch("src.api.routes.citywide.get_cache")
-    @patch("src.api.routes.citywide.get_supabase_client")
+    @patch("src.utils.supabase_client.get_supabase_client")
     def test_get_citywide_risk_pagination(
         self, mock_get_client, mock_get_cache, client, sample_citywide_risk_data, mock_cache
     ):
@@ -228,7 +228,7 @@ class TestCitywideRiskEndpoint:
         assert data["summary"]["pagination"]["limit"] == 2
     
     @patch("src.api.routes.citywide.get_cache")
-    @patch("src.api.routes.citywide.get_supabase_client")
+    @patch("src.utils.supabase_client.get_supabase_client")
     def test_get_citywide_risk_uses_cache(
         self, mock_get_client, mock_get_cache, client, mock_cache, sample_citywide_risk_data
     ):
@@ -279,7 +279,7 @@ class TestCitywideRiskEndpoint:
         assert response1.json() == response2.json()
     
     @patch("src.api.routes.citywide.get_cache")
-    @patch("src.api.routes.citywide.get_supabase_client")
+    @patch("src.utils.supabase_client.get_supabase_client")
     def test_get_citywide_risk_calculates_summary_statistics(
         self, mock_get_client, mock_get_cache, client, sample_citywide_risk_data, mock_cache
     ):
@@ -332,7 +332,7 @@ class TestCitywideRiskEndpoint:
         assert "average_risk_score" in summary
     
     @patch("src.api.routes.citywide.get_cache")
-    @patch("src.api.routes.citywide.get_supabase_client")
+    @patch("src.utils.supabase_client.get_supabase_client")
     def test_get_citywide_risk_handles_empty_result(
         self, mock_get_client, mock_get_cache, client, mock_cache
     ):

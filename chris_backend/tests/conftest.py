@@ -6,7 +6,7 @@ Provides test client, mock data, and utilities for all test modules.
 import pytest
 import os
 from fastapi.testclient import TestClient
-from unittest.mock import patch, MagicMock
+from unittest.mock import MagicMock
 from datetime import datetime
 from typing import Dict, Any, List
 
@@ -60,15 +60,13 @@ def mock_supabase_client():
 
 @pytest.fixture(scope="function")
 def app():
-    """FastAPI app instance with mocked dependencies."""
-    with patch("src.utils.supabase_client.get_supabase_client") as mock_get_client:
-        # Configure mock
-        mock_client = MagicMock()
-        mock_get_client.return_value = mock_client
-        
-        # Import app after patching
-        from src.api.main import app
-        yield app
+    """FastAPI app instance for testing.
+    
+    Note: Individual tests should patch dependencies as needed.
+    The app is imported here but patches should be applied during test execution.
+    """
+    from src.api.main import app
+    return app
 
 
 @pytest.fixture(scope="function")
@@ -248,6 +246,19 @@ def mock_cache():
     mock.stats.side_effect = mock_stats
     
     return mock
+
+
+@pytest.fixture(autouse=True)
+def reset_supabase_client():
+    """Reset Supabase client singleton between tests to allow mocking."""
+    import src.utils.supabase_client as sb_module
+    # Store original client
+    original_client = sb_module._supabase_client
+    # Reset to None so get_supabase_client will create a new one
+    sb_module._supabase_client = None
+    yield
+    # Restore original client
+    sb_module._supabase_client = original_client
 
 
 @pytest.fixture(autouse=True)
