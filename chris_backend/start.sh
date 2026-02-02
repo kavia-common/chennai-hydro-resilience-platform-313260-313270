@@ -30,8 +30,9 @@ echo "Starting CHRIS Backend API..."
 echo "  Host: ${UVICORN_HOST:-0.0.0.0}"
 echo "  Port: ${PORT:-3001}"
 echo "  Environment: ${NODE_ENV:-development}"
-echo "  Documentation: http://localhost:${PORT:-3001}/docs"
-echo "  Health Check: http://localhost:${PORT:-3001}/health"
+echo "  Documentation: http://${UVICORN_HOST:-0.0.0.0}:${PORT:-3001}/docs"
+echo "  Health Check: http://${UVICORN_HOST:-0.0.0.0}:${PORT:-3001}/health"
+echo "  API Base: http://${UVICORN_HOST:-0.0.0.0}:${PORT:-3001}/api/v1"
 echo ""
 
 if [ "${NODE_ENV}" == "production" ]; then
@@ -40,12 +41,16 @@ if [ "${NODE_ENV}" == "production" ]; then
         --host "${UVICORN_HOST:-0.0.0.0}" \
         --port "${PORT:-3001}" \
         --workers "${UVICORN_WORKERS:-4}" \
-        --log-level "${LOG_LEVEL:-info}"
+        --log-level "${LOG_LEVEL:-info}" \
+        --proxy-headers \
+        --forwarded-allow-ips='*'
 else
     # Development mode - with hot reload
     exec uvicorn src.api.main:app \
         --host "${UVICORN_HOST:-0.0.0.0}" \
         --port "${PORT:-3001}" \
         --reload \
-        --log-level "${LOG_LEVEL:-info}"
+        --log-level "${LOG_LEVEL:-info}" \
+        --proxy-headers \
+        --forwarded-allow-ips='*'
 fi

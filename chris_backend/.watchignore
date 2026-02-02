@@ -1,0 +1,12 @@
+venv/
+.venv/
+__pycache__/
+*.pyc
+*.pyo
+*.log
+.pytest_cache/
+.coverage
+*.egg-info/
+.git/
+node_modules/
+```

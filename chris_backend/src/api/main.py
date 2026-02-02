@@ -123,10 +123,10 @@ else:
     allowed_origins = [frontend_url] if frontend_url != "*" else ["*"]
 
 # Parse allowed methods and headers
-allowed_methods_str = os.getenv("ALLOWED_METHODS", "GET,POST,PUT,DELETE,OPTIONS")
+allowed_methods_str = os.getenv("ALLOWED_METHODS", "GET,POST,PUT,DELETE,OPTIONS,PATCH")
 allowed_methods = [method.strip() for method in allowed_methods_str.split(",")]
 
-allowed_headers_str = os.getenv("ALLOWED_HEADERS", "Content-Type,Authorization")
+allowed_headers_str = os.getenv("ALLOWED_HEADERS", "Content-Type,Authorization,X-Requested-With")
 allowed_headers = [header.strip() for header in allowed_headers_str.split(",")]
 
 logger.info(f"Configuring CORS - Allowed origins: {allowed_origins}")
@@ -139,6 +139,7 @@ app.add_middleware(
     allow_credentials=True,
     allow_methods=allowed_methods,
     allow_headers=allowed_headers,
+    expose_headers=["X-RateLimit-Limit", "X-RateLimit-Remaining", "X-RateLimit-Reset"],
     max_age=int(os.getenv("CORS_MAX_AGE", "3600"))
 )
 
