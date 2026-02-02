@@ -12,6 +12,7 @@ from fastapi.exceptions import RequestValidationError
 from starlette.exceptions import HTTPException as StarletteHTTPException
 import logging
 import os
+from datetime import datetime
 
 from src.api.routes import forecast_router, zones_router, citywide_router
 from src.middleware.rate_limit import rate_limit_middleware
@@ -196,30 +197,66 @@ async def http_exception_handler(request: Request, exc: StarletteHTTPException):
     )
 
 
-# Health check endpoint
+# Root endpoint
 @app.get(
     "/",
+    tags=["Health"],
+    summary="Root endpoint",
+    description="Root endpoint with API information"
+)
+def root():
+    """
+    Root endpoint with API information.
+    
+    Returns:
+        JSON response with API metadata
+    """
+    return JSONResponse(
+        content={
+            "service": "CHRIS Backend API",
+            "version": "1.0.0",
+            "message": "Chennai Hydro-Resilience Intelligence System",
+            "documentation": "/docs",
+            "openapi_spec": "/openapi.json",
+            "health": "/health"
+        }
+    )
+
+
+# Health check endpoint
+@app.get(
+    "/health",
     tags=["Health"],
     summary="Health check",
     description="Check if the CHRIS backend service is running and healthy"
 )
 def health_check():
     """
-    Health check endpoint for service monitoring.
+    Health check endpoint for service monitoring and load balancers.
     
     Returns:
-        JSON response with service status
+        JSON response with service status and configuration
     """
+    jwt_configured = bool(os.getenv("SUPABASE_JWT_SECRET") and 
+                         os.getenv("SUPABASE_JWT_SECRET") != "REQUIRED_FOR_JWT_VERIFICATION_GET_FROM_SUPABASE_DASHBOARD_SETTINGS_API")
+    
     return JSONResponse(
         content={
             "status": "healthy",
             "service": "CHRIS Backend API",
             "version": "1.0.0",
             "message": "Chennai Hydro-Resilience Intelligence System is operational",
+            "timestamp": datetime.utcnow().isoformat(),
             "security": {
-                "jwt_auth": "enabled" if os.getenv("SUPABASE_JWT_SECRET") else "not_configured",
+                "jwt_auth": "enabled" if jwt_configured else "not_configured",
                 "rate_limiting": "enabled",
                 "cors": "restricted" if allowed_origins != ["*"] else "permissive"
+            },
+            "endpoints": {
+                "forecast": "/api/v1/forecast/",
+                "zones": "/api/v1/map/sponge-zones",
+                "zone_details": "/api/v1/map/sponge-zones/{zone_id}/details",
+                "citywide_risk": "/api/v1/citywide-risk"
             }
         }
     )
@@ -259,10 +296,11 @@ async def startup_event():
     else:
         logger.info("✅ Supabase credentials configured")
     
-    if not supabase_jwt_secret:
+    if not supabase_jwt_secret or supabase_jwt_secret == "REQUIRED_FOR_JWT_VERIFICATION_GET_FROM_SUPABASE_DASHBOARD_SETTINGS_API":
         logger.warning(
-            "⚠️  SUPABASE_JWT_SECRET not configured. "
-            "JWT authentication will not work. Add this to .env for protected endpoints."
+            "⚠️  SUPABASE_JWT_SECRET not configured properly. "
+            "JWT authentication will not work. "
+            "Get the JWT secret from: Supabase Dashboard > Project Settings > API > JWT Settings"
         )
     else:
         logger.info("✅ JWT authentication enabled")

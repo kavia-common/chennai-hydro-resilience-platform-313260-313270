@@ -5,7 +5,7 @@ PUBLIC_INTERFACE: GET /api/v1/map/sponge-zones (Paginated & Cached)
 PUBLIC_INTERFACE: GET /api/v1/zone-details (Cached)
 Returns GeoJSON-compliant sponge zone mapping data from U-Net satellite analysis with performance optimizations.
 """
-from fastapi import APIRouter, HTTPException, Query, status, Request
+from fastapi import APIRouter, HTTPException, Query, status, Request, Path
 from datetime import datetime
 from typing import Optional, List
 import logging
@@ -360,7 +360,7 @@ async def get_sponge_zones(
 
 # PUBLIC_INTERFACE
 @router.get(
-    "/zone-details",
+    "/map/sponge-zones/{zone_id}/details",
     response_model=ZoneDetailResponse,
     status_code=status.HTTP_200_OK,
     summary="Get specific zone details (Cached)",
@@ -378,7 +378,7 @@ async def get_sponge_zones(
     - Show satellite indices (MNDWI, NDVI, VV/VH backscatter)
     - Display city planner recommendations
     
-    **Query Parameters:**
+    **Path Parameters:**
     - `zone_id` (required): Zone identifier (e.g., 'Z001') - must be alphanumeric with optional dash/underscore
     
     **Cache Invalidation:** Cache expires after 15 minutes or on zone data updates
@@ -395,7 +395,7 @@ async def get_sponge_zones(
 )
 async def get_zone_details(
     request: Request,
-    zone_id: str = Query(
+    zone_id: str = Path(
         ...,
         description="Zone identifier (e.g., 'Z001')",
         min_length=1,
@@ -410,7 +410,7 @@ async def get_zone_details(
     
     Args:
         request: FastAPI request object
-        zone_id: Zone identifier to lookup
+        zone_id: Zone identifier to lookup (from path parameter)
         
     Returns:
         ZoneDetailResponse with complete zone data
