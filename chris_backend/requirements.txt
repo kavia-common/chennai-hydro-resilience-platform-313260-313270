@@ -26,6 +26,9 @@ pydantic_core==2.33.1
 pyflakes==3.3.2
 Pygments==2.19.1
 pytest==8.3.5
+pytest-asyncio==0.24.0
+pytest-cov==6.0.0
+pytest-mock==3.14.0
 python-dotenv==1.1.0
 python-jose[cryptography]==3.3.0
 python-multipart==0.0.20
