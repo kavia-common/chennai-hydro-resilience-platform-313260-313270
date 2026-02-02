@@ -15,6 +15,7 @@ import os
 
 from src.api.routes import forecast_router, zones_router, citywide_router
 from src.middleware.rate_limit import rate_limit_middleware
+from src.utils.structured_logger import correlation_id_middleware
 
 # Configure logging
 logging.basicConfig(
@@ -22,6 +23,8 @@ logging.basicConfig(
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
 )
 logger = logging.getLogger(__name__)
+
+# Note: Structured logging can be optionally enabled in startup event for JSON logs
 
 # OpenAPI metadata
 openapi_tags = [
@@ -138,6 +141,9 @@ app.add_middleware(
     max_age=int(os.getenv("CORS_MAX_AGE", "3600"))
 )
 
+# Add correlation ID middleware (must be before rate limiting for proper logging)
+app.middleware("http")(correlation_id_middleware)
+
 # Add rate limiting middleware
 app.middleware("http")(rate_limit_middleware)
 
@@ -226,6 +232,7 @@ async def startup_event():
     Initialize application resources on startup.
     
     - Verify Supabase connection
+    - Initialize caching system
     - Load ML models if available
     - Log configuration status
     - Validate security settings
@@ -233,6 +240,11 @@ async def startup_event():
     logger.info("=== CHRIS Backend API Starting ===")
     logger.info("OpenAPI docs available at: /docs")
     logger.info("API spec available at: /openapi.json")
+    
+    # Initialize cache
+    from src.utils.cache import get_cache
+    get_cache()  # Initialize the cache singleton
+    logger.info("✅ In-memory cache initialized")
     
     # Check for environment variables
     supabase_url = os.getenv("SUPABASE_URL")
@@ -274,6 +286,13 @@ async def startup_event():
     logger.info(f"Rate Limiting: {os.getenv('RATE_LIMIT_MAX', '100')} requests per {os.getenv('RATE_LIMIT_WINDOW_S', '60')}s")
     logger.info(f"CORS Origins: {allowed_origins}")
     logger.info(f"JWT Auth: {'Enabled' if supabase_jwt_secret else 'Disabled'}")
+    
+    # Log performance configuration
+    logger.info("=== Performance Configuration ===")
+    logger.info("Cache: In-memory TTL cache enabled (10-15 min TTL)")
+    logger.info("Pagination: Enabled for list endpoints (max 1000 items)")
+    logger.info("Correlation IDs: Enabled for request tracing")
+    logger.info("Optimized Queries: Selective field filtering enabled")
     logger.info("=== Startup Complete ===")
 
 
