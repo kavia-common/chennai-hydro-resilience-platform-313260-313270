@@ -1,0 +1,41 @@
+{
+  "name": "chris-backend",
+  "version": "1.0.0",
+  "description": "CHRIS Backend - FastAPI service for flood risk prediction and hydrological data",
+  "scripts": {
+    "start": "bash start.sh",
+    "dev": "bash start.sh --reload",
+    "test": "pytest tests/ -v --cov=src --cov-report=term-missing",
+    "test:watch": "pytest-watch tests/ -v",
+    "verify": "python3 verify_startup.py",
+    "verify:endpoints": "bash test_endpoints.sh",
+    "lint": "flake8 src/ tests/",
+    "format": "black src/ tests/",
+    "type-check": "mypy src/",
+    "generate:openapi": "python3 src/api/generate_openapi.py",
+    "install": "pip install -r requirements.txt",
+    "install:dev": "pip install -r requirements.txt && pip install black mypy pytest-watch",
+    "clean": "find . -type d -name __pycache__ -exec rm -rf {} + 2>/dev/null || true",
+    "health": "curl -s http://localhost:3001/health | python3 -m json.tool",
+    "docs": "echo 'Opening API docs at http://localhost:3001/docs'"
+  },
+  "keywords": [
+    "fastapi",
+    "python",
+    "backend",
+    "api",
+    "flood-prediction",
+    "hydrological-data"
+  ],
+  "author": "CHRIS Team",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/your-org/chris-backend"
+  },
+  "engines": {
+    "python": ">=3.9"
+  },
+  "devDependencies": {},
+  "dependencies": {}
+}
