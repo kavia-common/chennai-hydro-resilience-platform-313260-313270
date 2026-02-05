@@ -1,0 +1,16 @@
+# Optional ML dependencies for model inference
+# Install with: pip install -r requirements-ml.txt
+
+# ONNX Runtime for production inference
+onnxruntime>=1.16.0
+
+# PyTorch for .pt/.pth models
+torch>=2.0.0
+
+# NumPy for preprocessing
+numpy>=1.24.0
+
+# Additional utilities
+scikit-learn>=1.3.0
+```
+`

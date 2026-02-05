@@ -14,7 +14,7 @@ import logging
 import os
 from datetime import datetime
 
-from src.api.routes import forecast_router, zones_router, citywide_router
+from src.api.routes import forecast_router, zones_router, citywide_router, model_info_router
 from src.middleware.rate_limit import rate_limit_middleware
 from src.utils.structured_logger import correlation_id_middleware
 
@@ -44,6 +44,10 @@ openapi_tags = [
     {
         "name": "Citywide Risk",
         "description": "**Aggregate Risk Data** - Access citywide flood risk trends and statistics"
+    },
+    {
+        "name": "Models",
+        "description": "**ML Model Management** - Model metadata, status, and inference capabilities"
     }
 ]
 
@@ -165,6 +169,7 @@ if os.getenv("NODE_ENV") != "development":
 app.include_router(forecast_router)
 app.include_router(zones_router)
 app.include_router(citywide_router)
+app.include_router(model_info_router)
 
 
 # Global exception handlers for better error responses
@@ -257,7 +262,8 @@ def health_check():
                 "forecast": "/api/v1/forecast/",
                 "zones": "/api/v1/map/sponge-zones",
                 "zone_details": "/api/v1/map/sponge-zones/{zone_id}/details",
-                "citywide_risk": "/api/v1/citywide-risk"
+                "citywide_risk": "/api/v1/citywide-risk",
+                "model_info": "/api/v1/models/info"
             }
         }
     )
