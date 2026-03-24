@@ -45,8 +45,34 @@ class ModelBArtifacts:
     onnx: OnnxModel | None = None
 
 
-def load_model_b_onnx(onnx_path: str, meta_path: str) -> ModelBArtifacts:
-    meta_raw = json.load(open(meta_path, "r"))
+# PUBLIC_INTERFACE
+def load_model_b_onnx(onnx_path: str, meta_path: str | None = None) -> ModelBArtifacts:
+    """
+    Load Model B (U-Net segmentation) artifacts from ONNX.
+
+    Parameters
+    ----------
+    onnx_path:
+        Path to the exported ONNX file.
+    meta_path:
+        Optional path to `meta.json`. If omitted or missing, sensible defaults are used:
+        - input.shape defaults to [256, 256, 3]
+        - classes mapping defaults to None
+        - sponge_zones constants default to SpongeZoneConstants()
+
+    Returns
+    -------
+    ModelBArtifacts
+        Loaded ONNX runtime session + metadata used by the backend.
+    """
+    # meta.json is optional to support "drop only an ONNX file" flows.
+    meta_raw: dict[str, Any] = {}
+    if meta_path:
+        try:
+            with open(meta_path, "r", encoding="utf-8") as f:
+                meta_raw = json.load(f)
+        except FileNotFoundError:
+            meta_raw = {}
 
     input_shape = (meta_raw.get("input") or {}).get("shape", [256, 256, 3])
     sponge_raw = meta_raw.get("sponge_zones") or {}
@@ -114,9 +140,24 @@ def predict_segmentation(art: ModelBArtifacts, image_bytes: bytes) -> dict[str, 
     x = _preprocess_image_rgb(image_bytes, art.meta.input_size).astype(np.float32)
     outputs = run_onnx(art.onnx, x)
 
-    # Expected: (1,H,W,C) softmax
+    # Common exports:
+    # - TF/Keras -> ONNX often yields (1,H,W,C) (NHWC)
+    # - Some pipelines yield (1,C,H,W) (NCHW)
     y = np.asarray(list(outputs.values())[0])
-    mask = np.argmax(y, axis=-1)[0].astype(np.int32)  # (H,W)
+
+    if y.ndim != 4 or y.shape[0] != 1:
+        raise RuntimeError(f"Unexpected Model B ONNX output shape: {tuple(y.shape)}")
+
+    # Heuristic: "channels" dimension is typically a small number (e.g., 6 classes).
+    # Prefer NHWC if the last dim looks like channels; otherwise handle NCHW.
+    if y.shape[-1] <= 64:
+        # (1,H,W,C)
+        mask = np.argmax(y, axis=-1)[0].astype(np.int32)  # (H,W)
+    elif y.shape[1] <= 64:
+        # (1,C,H,W)
+        mask = np.argmax(y, axis=1)[0].astype(np.int32)  # (H,W)
+    else:
+        raise RuntimeError(f"Could not infer channel axis for Model B ONNX output shape: {tuple(y.shape)}")
 
     return {"mask": mask.tolist(), "proportions": _mask_proportions(mask)}
 

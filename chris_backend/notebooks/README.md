@@ -28,11 +28,15 @@ Place exported files here:
 chris_backend/
   models/
     model_b/
-      unet.onnx
-      meta.json
+      unet.onnx      (recommended default name)
+      meta.json      (optional)
 ```
 
-The `meta.json` may optionally include `sponge_zones` to override the notebook defaults (pixel resolution, recharge depth, min-zone pixels, max-zone hectares). See `chris_backend/README.md` for the export format used by this repo.
+Notes:
+- The notebook (and backend loader) can run with **only an ONNX file**; if `meta.json` is missing, defaults are used (input size 256 + default sponge-zone constants).
+- For convenience, the notebook will also accept **any** `*.onnx` file dropped into `models/model_b/` if the configured filename is not present.
+
+If present, `meta.json` may include `sponge_zones` to override the notebook defaults (pixel resolution, recharge depth, min-zone pixels, max-zone hectares). See `chris_backend/README.md` for the export format used by this repo.
 
 ## Input images
 
