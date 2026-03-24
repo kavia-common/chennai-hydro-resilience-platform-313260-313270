@@ -11,11 +11,13 @@ cd chennai-hydro-resilience-platform-313260-313270/chris_backend
 python -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
-uvicorn app.main:app --host 0.0.0.0 --port 8000
+
+# Recommended: run on 3001 to match the frontend default API base URL.
+uvicorn app.main:app --host 0.0.0.0 --port 3001
 ```
 
 Open:
-- http://localhost:8000/docs
+- http://localhost:3001/docs
 
 ## Environment variables
 
