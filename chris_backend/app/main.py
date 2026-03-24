@@ -33,3 +33,22 @@ app.add_middleware(
 app.include_router(health.router)
 app.include_router(model_info.router)
 app.include_router(predict.router)
+
+
+if __name__ == "__main__":
+    """
+    Run the CHRIS FastAPI app directly.
+
+    This is primarily for local/preview environments where the process runner may execute
+    this module directly instead of invoking uvicorn via CLI.
+
+    It intentionally binds to 0.0.0.0 and defaults to port 3001 (the frontend's expected backend port).
+    """
+    import os
+
+    import uvicorn
+
+    port = int(os.getenv("PORT") or os.getenv("REACT_APP_PORT") or "3001")
+    log_level = (os.getenv("REACT_APP_LOG_LEVEL") or "info").lower()
+
+    uvicorn.run(app, host="0.0.0.0", port=port, log_level=log_level)

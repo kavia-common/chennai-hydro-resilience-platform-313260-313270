@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import io
 import json
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any
 
 import numpy as np
@@ -35,7 +35,7 @@ class SpongeZoneConstants:
 class ModelBMeta:
     input_size: int = 256
     classes: dict[str, str] | None = None
-    sponge_constants: SpongeZoneConstants = SpongeZoneConstants()
+    sponge_constants: SpongeZoneConstants = field(default_factory=SpongeZoneConstants)
 
 
 @dataclass
