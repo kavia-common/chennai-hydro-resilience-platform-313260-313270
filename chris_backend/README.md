@@ -22,14 +22,42 @@ Open:
 Create/update `.env`:
 
 ```env
+# --- CORS (recommended for React integration) ---
+# Optional: If CHRIS_CORS_ALLOW_ORIGINS is not set, backend will fall back to REACT_APP_FRONTEND_URL.
+REACT_APP_FRONTEND_URL=http://localhost:3000
+CHRIS_CORS_ALLOW_ORIGINS=http://localhost:3000,https://your-prod-frontend.example.com
+CHRIS_CORS_ALLOW_CREDENTIALS=false
+
+# --- Model A ---
 CHRIS_MODEL_A_PROVIDER=onnx
 CHRIS_MODEL_A_PATH=models/model_a/rainfall_lstm.onnx
 CHRIS_MODEL_A_META_PATH=models/model_a/meta.json
+CHRIS_MODEL_A_SCALER_X_PATH=models/model_a/scaler_X.joblib
+CHRIS_MODEL_A_SCALER_Y_PATH=models/model_a/scaler_y.joblib
 
+# Optional: deterministic mock mode for Model A (frontend demos/dev without artifacts)
+CHRIS_MODEL_A_MOCK_MODE=false
+CHRIS_MODEL_A_MOCK_SEQ_LEN=12
+CHRIS_MODEL_A_MOCK_FLOOD_THRESHOLD_MM=250.0
+CHRIS_MODEL_A_MOCK_BASELINE_MM=200.0
+
+# --- Model B ---
 CHRIS_MODEL_B_PROVIDER=onnx
 CHRIS_MODEL_B_PATH=models/model_b/unet.onnx
 CHRIS_MODEL_B_META_PATH=models/model_b/meta.json
 ```
+
+## Model diagnostics endpoint
+
+### GET `/model/info`
+
+Returns frontend-facing diagnostics for Model A / Model B:
+- artifact presence (paths exist, sizes, modified time)
+- load status (loaded or not)
+- load error string (if last load attempt failed)
+- loaded metadata (seq_len/features/threshold/classes) when available
+
+This endpoint does not fail if artifacts are missing; it reports status.
 
 ## Colab export steps (EXACT)
 
@@ -181,7 +209,7 @@ Body:
 }
 ```
 
-Length must equal `seq_len` in `meta.json`. Backend will compute `month_sin/cos`, scale via exported scalers, run model, and return:
+Length must equal `seq_len` in `meta.json` (or the mock `CHRIS_MODEL_A_MOCK_SEQ_LEN` when mock mode is enabled). Backend will compute `month_sin/cos`, scale via exported scalers, run model, and return:
 - `predicted_rainfall_mm`
 - `flood_probability_pct` (probability that predicted rainfall exceeds threshold)
 
@@ -224,5 +252,3 @@ You may include a `sponge_zones` object in `models/model_b/meta.json` to overrid
   }
 }
 ```
-
-"""
