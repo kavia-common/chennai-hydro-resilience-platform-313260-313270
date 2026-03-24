@@ -31,6 +31,12 @@ def model_info() -> dict:
             "provider": registry.MODEL_B.provider,
             "input_size": registry.MODEL_B.meta.input_size,
             "classes": registry.MODEL_B.meta.classes,
+            "sponge_zone_constants": {
+                "pixel_res_m": registry.MODEL_B.meta.sponge_constants.pixel_res_m,
+                "avg_depth_m": registry.MODEL_B.meta.sponge_constants.avg_depth_m,
+                "min_zone_pixels": registry.MODEL_B.meta.sponge_constants.min_zone_pixels,
+                "max_zone_ha": registry.MODEL_B.meta.sponge_constants.max_zone_ha,
+            },
         }
 
     return info

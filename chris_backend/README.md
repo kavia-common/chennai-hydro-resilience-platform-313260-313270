@@ -188,7 +188,41 @@ Length must equal `seq_len` in `meta.json`. Backend will compute `month_sin/cos`
 ### POST `/predict/segmentation`
 
 Accepts `multipart/form-data` with an image file (RGB PNG/JPG) sized 256x256 for now and returns:
-- predicted class mask as a 2D array (or a PNG in future)
+- predicted class mask as a 2D array (argmax of per-pixel softmax)
 - per-class pixel proportions
+
+### POST `/predict/terrain_analysis`
+
+Accepts `multipart/form-data` with an image file and returns **Model 2 full pipeline**:
+- segmentation `mask`
+- `proportions`
+- `sponge_zones`: connected-component “recharge” zones where (vacant=1) OR (flooded=5)
+- `sponge_summary`: total area + estimated capacity using conservative depth estimate
+
+This matches the authoritative notebook logic:
+- `pixel_res_m = 10`
+- `avg_depth_m = 0.5`
+- `min_zone_pixels = 50`
+- `max_zone_ha = 50`
+
+### POST `/predict/sponge_zones_geojson`
+
+Returns a GeoJSON `FeatureCollection` where each zone is represented as a **pixel-coordinate** bounding-box polygon.
+(Georeferenced GeoJSON requires upstream geocoding/raster metadata; not part of this repo yet.)
+
+## Optional meta.json for sponge zone constants
+
+You may include a `sponge_zones` object in `models/model_b/meta.json` to override defaults:
+
+```json
+{
+  "sponge_zones": {
+    "pixel_res_m": 10.0,
+    "avg_depth_m": 0.5,
+    "min_zone_pixels": 50,
+    "max_zone_ha": 50.0
+  }
+}
+```
 
 """
